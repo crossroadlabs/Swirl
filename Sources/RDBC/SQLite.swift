@@ -30,6 +30,9 @@ public enum SQLiteError : Error {
     case resource(name:String, message:String)
 }
 
+extension SQLiteError : RDBCError {
+}
+
 extension SQLiteError : ErrorWithCodeType {
     public typealias Code = Int32
     
