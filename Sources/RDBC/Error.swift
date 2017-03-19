@@ -21,4 +21,5 @@ public enum RDBCFrameworkError : RDBCError {
     case invalid(url: String)
     case unknown(protocol: String)
     case noProtocol
+    case noDialect
 }

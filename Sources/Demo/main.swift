@@ -7,9 +7,14 @@ import Future
 
 import RDBC
 
-protocol Dialect {
+public protocol DialectProvider {
+    var dialect:Dialect {get}
 }
 
+public protocol Dialect {
+}
+
+//Bound Query
 public protocol Query {
     associatedtype DS : Dataset
     
@@ -18,6 +23,46 @@ public protocol Query {
     var dataset:DS {get}
     var predicate:Predicate {get}
     var order:Any {get}
+}
+
+public protocol Renderable {
+    func render(dialect:Dialect) -> SQL
+}
+
+public struct SQL {
+    let query:String
+    let parameters:[Any?]
+    
+    init(query:String, parameters:[Any?]) {
+        self.query = query
+        self.parameters = parameters
+    }
+}
+
+extension Connection {
+    func execute(sql:SQL) -> Future<ResultSet?> {
+        return execute(query: sql.query, parameters: sql.parameters, named: [:])
+    }
+}
+
+public extension Query where DS : Renderable {
+    private func render(dialect:Dialect? = nil) throws -> SQL {
+        guard let dialect = dialect.or(else: (connection as? DialectProvider).map({$0.dialect})) else {
+            throw RDBCFrameworkError.noDialect
+        }
+        
+        fatalError()
+    }
+    
+    public func execute(dialect:Dialect? = nil) -> Future<ResultSet?> {
+        let connection = self.connection
+        
+        return future(context: immediate) {
+            try self.render(dialect: dialect)
+        }.flatMap { sql in
+            connection.execute(sql: sql)
+        }
+    }
 }
 
 public struct QueryImpl<DS : Dataset> : Query {
@@ -92,6 +137,12 @@ public protocol Table : Named, Dataset {
     subscript(_ column:String) -> Column {get}
 }
 
+public extension Table where Self : Renderable {
+    public func render(dialect:Dialect) -> SQL {
+        fatalError("Not implemented")
+    }
+}
+
 public protocol Column : Named {
     var table:Table {get}
 }
@@ -106,7 +157,7 @@ public struct ErasedColumn : Column {
     }
 }
 
-public struct ErasedTable : Table {
+public struct ErasedTable : Table, Renderable {
     public let name:String
     public let columns:Columns
     
@@ -153,11 +204,17 @@ extension JoinCondition : ExpressibleByArrayLiteral {
     }
 }
 
-public protocol JoinProtocol {
+public protocol JoinProtocol : Dataset {
     associatedtype Left : Dataset
     associatedtype Right : Table
     
     var join:Join<Left, Right> {get}
+}
+
+public extension JoinProtocol where Self : Renderable {
+    public func render(dialect:Dialect) -> SQL {
+        fatalError("Not implemented")
+    }
 }
 
 public extension JoinProtocol {
@@ -184,7 +241,7 @@ public extension JoinProtocol {
     }
 }
 
-public indirect enum Join<A : Dataset, B : Table> : Dataset, JoinProtocol {
+public indirect enum Join<A : Dataset, B : Table> : JoinProtocol, Renderable {
     public typealias Left = A
     public typealias Right = B
 
@@ -228,7 +285,7 @@ public extension Query where DS : JoinProtocol, DS.Left : Table {
         let cols = datasets |> f
         for col in cols {
             let name = col.table.name
-            if colmap[name] == nil {
+            if nil == colmap[name] {
                 colmap[name] = [String]()
             }
             colmap[name]!.append(col.name)
@@ -251,12 +308,23 @@ rdbc.register(driver: SQLiteDriver())
 
 let pool = rdbc.pool(url: "sqlite:///tmp/crlrsdc.sqlite")
 
-let t1 = pool.select(from: "test1").map{ $0["firstname"] }
-let t2 = pool.select(from: "test2").map("lastname")
+//let t1 = pool.select(from: "test1").map{ $0["firstname"] }
+//let t2 = pool.select(from: "test2").map("lastname")
 
-t1.zip(with: t2, using: ["id"]).map { t1, t2 in
-    [t1["a"], t2["b"]]
+pool.select(from: "").execute().flatMap{$0}.flatMap { results in
+    results.columns.zip(results.all())
+}.onSuccess { (cols, rows) in
+    print(cols)
+    for row in rows {
+        print(row)
+    }
+}.onFailure { e in
+    print("!!!Error:", e)
 }
+
+/*t1.zip(with: t2, using: ["id"]).map { t1, t2 in
+    [t1["a"], t2["b"]]
+}*/
 
 //t1.join(t2) { t1, t2 in t1["id"] == t2["id"] }.filter { t1, _ in t1["firstname"] == "Daniel" || t2["lastname"] == "Lennon" }
 
