@@ -362,7 +362,7 @@ extension Dialect {
     }*/
     
     func render(column: String, table: String) -> String {
-        return "\(table).\(column)"
+        return "\(table).`\(column)`"
     }
     
     func render(columns: Columns, table: String) -> [String] {
@@ -390,8 +390,15 @@ extension Dialect {
     
     func render<J: JoinProtocol>(join:J, name:String) -> SQL {
         switch join.join {
+            //CROSS
         case .cross(left: let left, right: let right):
             return left.render(dialect: self, name: next(name: name)) + " CROSS JOIN " + right.render(dialect: self, name: name)
+            //NATURAL
+        case .inner(left: let left, right: let right, condition: .natural):
+            return left.render(dialect: self, name: next(name: name)) + " NATURAL JOIN " + right.render(dialect: self, name: name)
+        case .inner(left: let left, right: let right, condition: .using(let columns)):
+            let using = columns.map {"`\($0)`"}.joined(separator: ", ")
+            return left.render(dialect: self, name: next(name: name)) + " INNER JOIN " + right.render(dialect: self, name: name) + " USING(\(using))"
         default:
             fatalError("Not implemented")
         }
@@ -429,7 +436,7 @@ let pool = try rdbc.pool(url: "sqlite:///tmp/crlrsdc.sqlite")
 //let t1 = pool.select(from: "test1").map{ $0["firstname"] }
 //let t2 = pool.select(from: "test2").map("lastname")
 
-pool.select(from: "test1").zip(with: pool.select(from: "test2")).map { t1, t2 in
+pool.select(from: "test1").zip(with: pool.select(from: "test2"), using: .using(["id"])).map { t1, t2 in
     [t1["lastname"], t2["comment"]]
 }.execute().flatMap{$0}.flatMap { results in
     results.columns.zip(results.all())
