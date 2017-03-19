@@ -7,13 +7,6 @@ import Future
 
 import RDBC
 
-public protocol DialectProvider {
-    var dialect:Dialect {get}
-}
-
-public protocol Dialect {
-}
-
 //Bound Query
 public protocol Query {
     associatedtype DS : Dataset
@@ -47,7 +40,7 @@ extension Connection {
 
 public extension Query where DS : Renderable {
     private func render(dialect:Dialect? = nil) throws -> SQL {
-        guard let dialect = dialect.or(else: (connection as? DialectProvider).map({$0.dialect})) else {
+        guard let dialect = dialect.or(else: (connection as? DialectRich).map({$0.dialect})) else {
             throw RDBCFrameworkError.noDialect
         }
         
@@ -303,15 +296,18 @@ public extension Query where DS : JoinProtocol, DS.Left : Table {
     }
 }
 
-let rdbc = RDBC()
-rdbc.register(driver: SQLiteDriver())
+class SQLiteDialect : Dialect {
+}
 
-let pool = rdbc.pool(url: "sqlite:///tmp/crlrsdc.sqlite")
+let rdbc = RDBC()
+rdbc.register(driver: SQLiteDriver(), dialect: SQLiteDialect())
+
+let pool = try rdbc.pool(url: "sqlite:///tmp/crlrsdc.sqlite")
 
 //let t1 = pool.select(from: "test1").map{ $0["firstname"] }
 //let t2 = pool.select(from: "test2").map("lastname")
 
-pool.select(from: "").execute().flatMap{$0}.flatMap { results in
+/*pool.select(from: "").execute().flatMap{$0}.flatMap { results in
     results.columns.zip(results.all())
 }.onSuccess { (cols, rows) in
     print(cols)
@@ -320,6 +316,18 @@ pool.select(from: "").execute().flatMap{$0}.flatMap { results in
     }
 }.onFailure { e in
     print("!!!Error:", e)
+}*/
+
+pool.execute(query: "SELECT * FROM test1;", parameters: [], named: [:]).flatMap{$0}
+    .flatMap { results in
+        results.columns.zip(results.all())
+    }.onSuccess { (cols, rows) in
+        print(cols)
+        for row in rows {
+            print(row)
+        }
+    }.onFailure { e in
+        print("!!!Error:", e)
 }
 
 /*t1.zip(with: t2, using: ["id"]).map { t1, t2 in

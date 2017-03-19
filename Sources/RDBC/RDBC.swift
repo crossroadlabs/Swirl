@@ -19,12 +19,19 @@ import Boilerplate
 import ExecutionContext
 import Future
 
+public protocol DialectRich {
+    var dialect:Dialect {get}
+}
+
+public protocol Dialect {
+}
+
 public protocol ConnectionFactory {
     func connect(url:String, params:Dictionary<String, String>) -> Future<Connection>
 }
 
 public protocol PoolFactory {
-    func pool(url:String, params:Dictionary<String, String>) -> ConnectionPool
+    func pool(url:String, params:Dictionary<String, String>) throws -> ConnectionPool
 }
 
 public extension ConnectionFactory {
@@ -34,8 +41,8 @@ public extension ConnectionFactory {
 }
 
 public extension PoolFactory {
-    func pool(url:String) -> ConnectionPool {
-        return pool(url: url, params: [:])
+    func pool(url:String) throws -> ConnectionPool {
+        return try pool(url: url, params: [:])
     }
 }
 
@@ -71,42 +78,78 @@ public class ConnectionPool : Connection {
     }
 }
 
+class DialectRichConnectionPool : ConnectionPool, DialectRich {
+    let dialect: Dialect
+    
+    init(dialect:Dialect, connectionFactory:@escaping ()->Future<Connection>) {
+        self.dialect = dialect
+        super.init(connectionFactory: connectionFactory)
+    }
+}
+
+extension ConnectionPool {
+    static func pool(dialect:Dialect?, connectionFactory:@escaping ()->Future<Connection>) -> ConnectionPool {
+        return dialect.map { dialect in
+            DialectRichConnectionPool(dialect: dialect, connectionFactory: connectionFactory)
+        } ?? ConnectionPool(connectionFactory: connectionFactory)
+    }
+}
+
 public class RDBC : ConnectionFactory, PoolFactory {
-    private var _drivers = [String:Driver]()
+    private var _drivers = [String:(Driver, Dialect?)]()
     private let _contextFactory:()->ExecutionContextProtocol
     
     public init() {
         _contextFactory = {ExecutionContext(kind: .serial)}
     }
     
-    public func register(driver: Driver) {
-        _drivers[driver.proto] = driver
+    public func register(driver: Driver, dialect: Dialect? = nil) {
+        _drivers[driver.proto] = (driver, dialect)
     }
     
-    public func register(driver: SyncDriver) {
+    private func async(driver: SyncDriver, dialect:Dialect? = nil) -> (Driver, Dialect?) {
+        let dialect = dialect.or(else: (driver as? DialectRich)?.dialect)
         let driver = AsyncDriver(driver: driver, contextFactory: _contextFactory)
-        register(driver: driver)
+        
+        return dialect.map { dialect -> (Driver, Dialect?) in
+            (driver, dialect)
+        } ?? (driver, nil)
     }
     
-    public func pool(url:String, params:Dictionary<String, String>) -> ConnectionPool {
-        return ConnectionPool {
+    public func register(driver: SyncDriver, dialect: Dialect? = nil) {
+        async(driver: driver, dialect: dialect) |> register
+    }
+    
+    public func pool(url:String, params:Dictionary<String, String>) throws -> ConnectionPool {
+        let (_, dialect) = try self.driver(url: url, params: params)
+        
+        return ConnectionPool.pool(dialect: dialect) {
             self.connect(url: url, params: params)
         }
     }
     
-    public func connect(url _url: String, params: Dictionary<String, String>) -> Future<Connection> {
+    private func driver(url _url: String, params: Dictionary<String, String>) throws -> (Driver, Dialect?) {
         guard let url = URL(string: _url) else {
-            return Future(error: RDBCFrameworkError.invalid(url: _url))
+            throw RDBCFrameworkError.invalid(url: _url)
         }
         
         guard let proto = url.scheme else {
-            return Future(error: RDBCFrameworkError.noProtocol)
+            throw RDBCFrameworkError.noProtocol
         }
         
         guard let driver = _drivers[proto] else {
-            return Future(error: RDBCFrameworkError.unknown(protocol: proto))
+            throw RDBCFrameworkError.unknown(protocol: proto)
         }
         
-        return driver.connect(url: _url, params: params)
+        return driver
+    }
+    
+    public func connect(url: String, params: Dictionary<String, String>) -> Future<Connection> {
+        return future(context: immediate) {
+            try self.driver(url: url, params: params)
+        }.flatMap { (driver, _) in
+            //TODO: wrap connnection
+            driver.connect(url: url, params: params)
+        }
     }
 }
