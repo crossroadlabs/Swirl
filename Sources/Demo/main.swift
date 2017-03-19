@@ -1,9 +1,297 @@
 
 import Foundation
+
+import Boilerplate
 import ExecutionContext
 import Future
 
 import RDBC
+
+protocol Dialect {
+}
+
+public protocol Query {
+    associatedtype DS : Dataset
+    
+    var connection:Connection {get}
+    
+    var dataset:DS {get}
+    var predicate:Predicate {get}
+    var order:Any {get}
+}
+
+public struct QueryImpl<DS : Dataset> : Query {
+    public let connection:Connection
+    
+    public let dataset:DS
+    public let predicate:Predicate
+    public let order:Any
+    
+    init(connection:Connection, dataset:DS, predicate:Predicate, order:Any) {
+        self.connection = connection
+        self.dataset = dataset
+        self.predicate = predicate
+        self.order = order
+    }
+}
+
+public extension Query where DS : Table {
+    public func map(_ f: @autoclosure (DS)->[String]) -> QueryImpl<ErasedTable> {
+        let dataset = ErasedTable(name: self.dataset.name, columns: .list(f(self.dataset)))
+        return QueryImpl(connection: connection,
+                         dataset: dataset,
+                         predicate: predicate,
+                         order: order)
+    }
+    
+    public func map(_ f: @autoclosure (DS)->String) -> QueryImpl<ErasedTable> {
+        let dataset = ErasedTable(name: self.dataset.name, columns: .list([f(self.dataset)]))
+        return QueryImpl(connection: connection,
+                         dataset: dataset,
+                         predicate: predicate,
+                         order: order)
+    }
+}
+
+public extension Connection {
+    public func select(_ columns: [String]? = nil, from: String) -> QueryImpl<ErasedTable> {
+        let columns:Columns = columns.map { seq in
+            .list(seq)
+        }.getOr(else: .all)
+        
+        return QueryImpl(connection: self,
+                         dataset: ErasedTable(name: from, columns: columns),
+                         predicate: .null,
+                         order: "")
+    }
+}
+
+public enum Columns {
+    case list([String])
+    case all
+}
+
+public protocol Dataset {
+}
+
+public protocol Table : Named, Dataset {
+    var columns:Columns {get}
+}
+
+public struct ErasedTable : Table {
+    public let name:String
+    public let columns:Columns
+    
+    public init(name:String, columns:Columns = .all) {
+        self.name = name
+        self.columns = columns
+    }
+}
+
+extension ErasedTable {
+    init(_ table:Table) {
+        self.init(name: table.name, columns: table.columns)
+    }
+}
+
+public enum Predicate {
+    case `true`
+    case `false`
+    case null
+}
+
+public enum JoinDirection {
+    case left
+    case right
+    case full
+}
+
+public enum JoinCondition {
+    case on(Predicate)
+    case using([String])
+    case natural
+}
+
+public protocol JoinProtocol {
+    associatedtype Left : Dataset
+    associatedtype Right : Table
+    
+    var join:Join<Left, Right> {get}
+}
+
+public indirect enum Join<A : Dataset, B : Table> : Dataset, JoinProtocol {
+    public typealias Left = A
+    public typealias Right = B
+
+    case cross(left:Left, right:Right)
+    case inner(left:Left, right:Right, condition:JoinCondition)
+    case outer(left:Left, right:Right, condition:JoinCondition, direction:JoinDirection)
+    
+    public var join:Join {
+        return self
+    }
+}
+
+public extension Query {
+    //cross join
+    public func join<B : Table, Q : Query>(_ query:Q) -> QueryImpl<Join<DS, B>> where Q.DS == B {
+        let join:Join<DS, B> = .cross(left: dataset, right: query.dataset)
+        //TODO: glue predicated with AND
+        return QueryImpl(connection: connection, dataset: join, predicate: predicate, order: order)
+    }
+}
+
+public extension Query where DS : JoinProtocol, DS.Left : Table {
+    public func map(_ f: (DS.Left, DS.Right)->[String]) -> QueryImpl<Join<DS.Left, DS.Right>> {
+        fatalError()
+    }
+}
+
+let rdbc = RDBC()
+rdbc.register(driver: SQLiteDriver())
+
+let pool = rdbc.pool(url: "sqlite:///tmp/crlrsdc.sqlite")
+
+let t1 = pool.select(from: "test1").map(["firstname"])
+let t2 = pool.select(from: "test2").map("lastname")
+
+t1.join(t2).map { t1, t2 in
+    ["a", "b"]
+}
+
+//t1.join(t2) { t1, t2 in t1["id"] == t2["id"] }.filter { t1, _ in t1["firstname"] == "Daniel" || t2["lastname"] == "Lennon" }
+
+/*public indirect enum Dataset {
+    case table(Table)
+    case join(Join)
+}*/
+
+/*public protocol Dialect {
+    func select(connection:Connection, from: String) -> Query
+}
+
+public protocol Column : Named {
+    //var type:Any.Type {get}
+}
+
+public enum Columns {
+    case all
+    case columns([Column])
+}
+
+public protocol Meta {
+    var columns:Columns {get}
+    
+    subscript(_ name:String) -> Column {get}
+}
+
+public struct GenericColumn : Column {
+    public let name:String
+    
+    public init(name:String) {
+        self.name = name
+    }
+}
+
+public struct GenericMeta : Meta {
+    public static let identity:GenericMeta = GenericMeta()
+    
+    public let columns: Columns = .all
+    
+    public subscript(_ name:String) -> Column {
+        return GenericColumn(name: name)
+    }
+}
+
+func toDict<A : Hashable, B, S : Sequence>(_ s:S) -> [A: B] where S.Iterator.Element == (A, B) {
+    var dict = [A: B]()
+    for (a, b) in s {
+       dict[a] = b
+    }
+    return dict
+}
+
+public struct SelectedMeta : Meta {
+    public let columns: Columns
+    private let columnsMap: [String: Column]
+    
+    public init(columns: [Column]) {
+        self.columns = .columns(columns)
+        self.columnsMap = toDict(columns.map { ($0.name, $0) })
+    }
+    
+    public subscript(_ name:String) -> Column {
+        return columnsMap[name]!
+    }
+}
+
+extension Columns {
+    var meta:Meta {
+        switch self {
+        case .columns(let columns):
+            return SelectedMeta(columns: columns)
+        default:
+            return GenericMeta()
+        }
+    }
+}
+
+public enum Dataset {
+    case query
+    case join(String)
+    case table(String, meta:Meta)
+}
+
+extension Dataset {
+    func map(_ f:(Meta)->Meta) -> Dataset {
+        switch self {
+        case .table(let table, meta: let meta):
+            return .table(table, meta: f(meta))
+        default:
+            fatalError()
+        }
+    }
+}
+
+public struct Select {
+    let dataset:Dataset
+    
+    private init(dataset:Dataset) {
+        self.dataset = dataset
+    }
+    
+    func map(_ f:(Meta)->Column) -> Select {
+        return map {[f($0)]}
+    }
+    
+    func map<S : Sequence>(_ f:(Meta)->S) -> Select where S.Iterator.Element == Column {
+        return map {.columns(Array(f($0)))}
+    }
+    
+    func map(_ f:(Meta)->Columns) -> Select {
+        return Select(dataset: dataset.map {f($0).meta})
+    }
+}
+
+extension Select : ExpressibleByStringLiteral {
+    public init(stringLiteral value: String) {
+        dataset = .table(value, meta: GenericMeta.identity)
+    }
+    
+    public init(extendedGraphemeClusterLiteral value: String) {
+        self.init(stringLiteral: value)
+    }
+    
+    public init(unicodeScalarLiteral value: String) {
+        self.init(stringLiteral: value)
+    }
+}
+
+public extension Connection {
+    public func select1(from: Select) -> Select {
+        return from
+    }
+}
 
 public enum BinaryOp {
     case and
@@ -19,6 +307,8 @@ extension BinaryOp {
         switch self {
         case .and:
             return "AND"
+        case .or:
+            return "OR"
         case .eq:
             return "=="
         default:
@@ -115,6 +405,10 @@ func &&(p1:Predicate, p2:Predicate) -> Predicate {
     return .compound(op: .and, p1, p2)
 }
 
+func ||(p1:Predicate, p2:Predicate) -> Predicate {
+    return .compound(op: .or, p1, p2)
+}
+
 //let driver = SQLiteDriver()
 //let connection = try driver.connect(url: "sqlite:///tmp/crlrsdc.sqlite", params: [:])
 /*try connection.execute(query: "CREATE TABLE test1(id INTEGER PRIMARY KEY AUTOINCREMENT, firstname, lastname);", parameters: [], named: [:])
@@ -139,6 +433,8 @@ rdbc.register(driver: SQLiteDriver())
 
 let pool = rdbc.pool(url: "sqlite:///tmp/crlrsdc.sqlite")
 
+pool.select1(from: "test1").map {$0["firstname"]}
+
 pool.execute(query: "SELECT * FROM test1;", parameters: [], named: [:]).flatMap{$0}
 .flatMap { results in
     results.columns.zip(results.all())
@@ -153,7 +449,7 @@ pool.execute(query: "SELECT * FROM test1;", parameters: [], named: [:]).flatMap{
 
 pool
     .select(["id", "firstname"], from: "test1")
-    .where("firstname" == "Daniel" && "lastname" == "Leping")
+    .where("firstname" == "Daniel" && "lastname" == "Leping" || "lastname" == "Lennon")
     .execute().flatMap{$0}
     .flatMap { results in
         results.columns.zip(results.all())
@@ -164,7 +460,7 @@ pool
         }
     }.onFailure { e in
         print("!!!Error:", e)
-}
+}*/
 
 /*
  //this actually worked
