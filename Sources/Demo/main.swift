@@ -144,6 +144,15 @@ public enum JoinCondition {
     case natural
 }
 
+extension JoinCondition : ExpressibleByArrayLiteral {
+    public typealias Element = String
+    
+    /// Creates an instance initialized with the given elements.
+    public init(arrayLiteral elements: String...) {
+        self = .using(elements)
+    }
+}
+
 public protocol JoinProtocol {
     associatedtype Left : Dataset
     associatedtype Right : Table
@@ -190,8 +199,20 @@ public indirect enum Join<A : Dataset, B : Table> : Dataset, JoinProtocol {
 
 public extension Query {
     //cross join
-    public func join<B : Table, Q : Query>(_ query:Q) -> QueryImpl<Join<DS, B>> where Q.DS == B {
+    public func zip<B : Table, Q : Query>(with query:Q) -> QueryImpl<Join<DS, B>> where Q.DS == B {
         let join:Join<DS, B> = .cross(left: dataset, right: query.dataset)
+        //TODO: glue predicated with AND
+        return QueryImpl(connection: connection, dataset: join, predicate: predicate, order: order)
+    }
+    
+    public func zip<B : Table, Q : Query>(with query:Q, using condition: JoinCondition) -> QueryImpl<Join<DS, B>> where Q.DS == B {
+        let join:Join<DS, B> = .inner(left: dataset, right: query.dataset, condition: condition)
+        //TODO: glue predicated with AND
+        return QueryImpl(connection: connection, dataset: join, predicate: predicate, order: order)
+    }
+    
+    public func zip<B : Table, Q : Query>(with query:Q, using condition: JoinCondition, type direction: JoinDirection) -> QueryImpl<Join<DS, B>> where Q.DS == B {
+        let join:Join<DS, B> = .outer(left: dataset, right: query.dataset, condition: condition, direction: direction)
         //TODO: glue predicated with AND
         return QueryImpl(connection: connection, dataset: join, predicate: predicate, order: order)
     }
@@ -233,7 +254,7 @@ let pool = rdbc.pool(url: "sqlite:///tmp/crlrsdc.sqlite")
 let t1 = pool.select(from: "test1").map{ $0["firstname"] }
 let t2 = pool.select(from: "test2").map("lastname")
 
-t1.join(t2).map { t1, t2 in
+t1.zip(with: t2, using: ["id"]).map { t1, t2 in
     [t1["a"], t2["b"]]
 }
 
