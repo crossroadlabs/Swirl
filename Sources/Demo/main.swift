@@ -36,6 +36,16 @@ public struct QueryImpl<DS : Dataset> : Query {
 }
 
 public extension Query where DS : Table {
+    public func map(_ f: (DS)->Column) -> QueryImpl<ErasedTable> {
+        let names = [f(self.dataset).name]
+        return map(names)
+    }
+    
+    public func map(_ f: (DS)->[Column]) -> QueryImpl<ErasedTable> {
+        let names = f(self.dataset).map{$0.name}
+        return map(names)
+    }
+    
     public func map(_ f: @autoclosure (DS)->[String]) -> QueryImpl<ErasedTable> {
         let dataset = ErasedTable(name: self.dataset.name, columns: .list(f(self.dataset)))
         return QueryImpl(connection: connection,
@@ -76,6 +86,24 @@ public protocol Dataset {
 
 public protocol Table : Named, Dataset {
     var columns:Columns {get}
+    
+    init(name:String, columns:Columns)
+    
+    subscript(_ column:String) -> Column {get}
+}
+
+public protocol Column : Named {
+    var table:Table {get}
+}
+
+public struct ErasedColumn : Column {
+    public let name:String
+    public let table:Table
+    
+    init(name: String, in table: Table) {
+        self.name = name
+        self.table = table
+    }
 }
 
 public struct ErasedTable : Table {
@@ -85,6 +113,10 @@ public struct ErasedTable : Table {
     public init(name:String, columns:Columns = .all) {
         self.name = name
         self.columns = columns
+    }
+    
+    public subscript(_ column:String) -> Column {
+        return ErasedColumn(name: column, in: self)
     }
 }
 
@@ -119,6 +151,30 @@ public protocol JoinProtocol {
     var join:Join<Left, Right> {get}
 }
 
+public extension JoinProtocol {
+    public var datasets:(Left, Right) {
+        switch join {
+        case .cross(left: let left, right: let right):
+            return (left, right)
+        case .inner(left: let left, right: let right, condition: _):
+            return (left, right)
+        case .outer(left: let left, right: let right, condition: _, direction: _):
+            return (left, right)
+        }
+    }
+    
+    func replace(left _left:Left? = nil, right _right:Right? = nil) -> Join<Left, Right> {
+        switch join {
+        case .cross(left: let left, right: let right):
+            return .cross(left: _left ?? left, right: _right ?? right)
+        case .inner(left: let left, right: let right, condition: let condition):
+            return .inner(left: _left ?? left, right: _right ?? right, condition: condition)
+        case .outer(left: let left, right: let right, condition: let condition, direction: let direction):
+            return .outer(left: _left ?? left, right: _right ?? right, condition: condition, direction: direction)
+        }
+    }
+}
+
 public indirect enum Join<A : Dataset, B : Table> : Dataset, JoinProtocol {
     public typealias Left = A
     public typealias Right = B
@@ -142,8 +198,30 @@ public extension Query {
 }
 
 public extension Query where DS : JoinProtocol, DS.Left : Table {
-    public func map(_ f: (DS.Left, DS.Right)->[String]) -> QueryImpl<Join<DS.Left, DS.Right>> {
-        fatalError()
+    public func map(_ f: (DS.Left, DS.Right)->[Column]) -> QueryImpl<Join<DS.Left, DS.Right>> {
+        var colmap = [String: [String]]()
+        
+        let datasets = dataset.datasets
+        let (left, right) = datasets
+        
+        let cols = datasets |> f
+        for col in cols {
+            let name = col.table.name
+            if colmap[name] == nil {
+                colmap[name] = [String]()
+            }
+            colmap[name]!.append(col.name)
+        }
+        
+        let newleft = DS.Left(name: left.name, columns: .list(colmap[left.name] ?? []))
+        let newright = DS.Right(name: right.name, columns: .list(colmap[right.name] ?? []))
+        
+        let join = dataset.replace(left: newleft, right: newright)
+        
+        return QueryImpl(connection: connection,
+                         dataset: join,
+                         predicate: predicate,
+                         order: order)
     }
 }
 
@@ -152,11 +230,11 @@ rdbc.register(driver: SQLiteDriver())
 
 let pool = rdbc.pool(url: "sqlite:///tmp/crlrsdc.sqlite")
 
-let t1 = pool.select(from: "test1").map(["firstname"])
+let t1 = pool.select(from: "test1").map{ $0["firstname"] }
 let t2 = pool.select(from: "test2").map("lastname")
 
 t1.join(t2).map { t1, t2 in
-    ["a", "b"]
+    [t1["a"], t2["b"]]
 }
 
 //t1.join(t2) { t1, t2 in t1["id"] == t2["id"] }.filter { t1, _ in t1["firstname"] == "Daniel" || t2["lastname"] == "Lennon" }
