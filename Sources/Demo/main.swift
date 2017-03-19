@@ -32,19 +32,56 @@ public struct SQL {
     }
 }
 
+public func +(a:SQL, b:SQL) -> SQL {
+    return SQL(query: a.query + b.query, parameters: a.parameters + b.parameters)
+}
+
+public func +(a:SQL, b:String) -> SQL {
+    return SQL(query: a.query + b, parameters: a.parameters)
+}
+
+public func +(a:String, b:SQL) -> SQL {
+    return SQL(query: a + b.query, parameters: b.parameters)
+}
+
 extension Connection {
     func execute(sql:SQL) -> Future<ResultSet?> {
         return execute(query: sql.query, parameters: sql.parameters, named: [:])
     }
 }
 
-public extension Query where DS : Renderable {
+private func next(name: String?) -> String {
+    guard let name = name else {
+        return "a"
+    }
+    
+    let scalars = name.unicodeScalars
+    let char = UnicodeScalar(scalars[scalars.startIndex].value + 1)!
+    
+    return String(describing: char)
+}
+
+private func name(at index: Int) -> String {
+    let scalars = "a".unicodeScalars
+    let char = UnicodeScalar(scalars[scalars.startIndex].value.advanced(by: index))!
+    
+    return String(describing: char)
+}
+
+public extension Query {
     private func render(dialect:Dialect? = nil) throws -> SQL {
         guard let dialect = dialect.or(else: (connection as? DialectRich).map({$0.dialect})) else {
             throw RDBCFrameworkError.noDialect
         }
         
-        fatalError()
+        let columns = dialect.render(columns: dataset)
+        let source = dataset.render(dialect: dialect, name: "a")
+        
+        return "SELECT " + columns + " FROM " + source + ";"
+        
+        //return SQL(query: "select \(colParams) from ", parameters: <#T##[Any?]#>)
+        
+        //return dataset.render(dialect: dialect)
     }
     
     public func execute(dialect:Dialect? = nil) -> Future<ResultSet?> {
@@ -120,6 +157,9 @@ public enum Columns {
 }
 
 public protocol Dataset {
+    var tables:[Table] {get}
+    
+    func render(dialect:Dialect, name:String) -> SQL
 }
 
 public protocol Table : Named, Dataset {
@@ -130,9 +170,15 @@ public protocol Table : Named, Dataset {
     subscript(_ column:String) -> Column {get}
 }
 
-public extension Table where Self : Renderable {
-    public func render(dialect:Dialect) -> SQL {
-        fatalError("Not implemented")
+public extension Table {
+    public var tables:[Table] {
+        return [self]
+    }
+}
+
+public extension Table {
+    public func render(dialect:Dialect, name:String) -> SQL {
+        return dialect.render(table: self, name: name)
     }
 }
 
@@ -150,7 +196,7 @@ public struct ErasedColumn : Column {
     }
 }
 
-public struct ErasedTable : Table, Renderable {
+public struct ErasedTable : Table {
     public let name:String
     public let columns:Columns
     
@@ -204,9 +250,16 @@ public protocol JoinProtocol : Dataset {
     var join:Join<Left, Right> {get}
 }
 
-public extension JoinProtocol where Self : Renderable {
-    public func render(dialect:Dialect) -> SQL {
-        fatalError("Not implemented")
+public extension JoinProtocol {
+    public var tables:[Table] {
+        let (left, right) = datasets
+        return left.tables + right.tables
+    }
+}
+
+public extension JoinProtocol {
+    public func render(dialect:Dialect, name: String) -> SQL {
+        return dialect.render(join: self, name: name)
     }
 }
 
@@ -234,7 +287,7 @@ public extension JoinProtocol {
     }
 }
 
-public indirect enum Join<A : Dataset, B : Table> : JoinProtocol, Renderable {
+public indirect enum Join<A : Dataset, B : Table> : JoinProtocol {
     public typealias Left = A
     public typealias Right = B
 
@@ -299,6 +352,75 @@ public extension Query where DS : JoinProtocol, DS.Left : Table {
 class SQLiteDialect : Dialect {
 }
 
+extension Dialect {
+    var param:String {
+        return "?"
+    }
+    
+    /*func render(columnsCount: Int) -> String {
+        return Array(repeating: param, count: columnsCount).joined(separator: ", ")
+    }*/
+    
+    func render(column: String, table: String) -> String {
+        return "\(table).\(column)"
+    }
+    
+    func render(columns: Columns, table: String) -> [String] {
+        switch columns {
+        case .all:
+            return [render(column: "*", table: table)]
+        case .list(let columns):
+            return columns.map {render(column: $0, table: table)}
+        }
+    }
+    
+    func render(columns dataset:Dataset) -> SQL {
+        let columns = dataset.tables.reversed().enumerated().map { (i, table) in
+            (table.columns, name(at: i))
+        }.reversed().flatMap(render).joined(separator: ", ")
+        
+        //let sql = render(columnsCount: columns.count)
+        
+        return SQL(query: columns, parameters: [])
+    }
+    
+    func render(table:Table, name:String) -> SQL {
+        return SQL(query: "`\(table.name)` as \(name)", parameters: [])
+    }
+    
+    func render<J: JoinProtocol>(join:J, name:String) -> SQL {
+        switch join.join {
+        case .cross(left: let left, right: let right):
+            return left.render(dialect: self, name: next(name: name)) + " CROSS JOIN " + right.render(dialect: self, name: name)
+        default:
+            fatalError("Not implemented")
+        }
+    }
+}
+
+/*let driver = SQLiteDriver()
+let connection = try driver.connect(url: "sqlite:///tmp/crlrsdc.sqlite", params: [:])
+try connection.execute(query: "CREATE TABLE test2(id INTEGER PRIMARY KEY AUTOINCREMENT, comment);", parameters: [], named: [:])
+try connection.execute(query: "INSERT INTO test2(comment) VALUES(?);", parameters: ["Awesome"], named: [:])
+try connection.execute(query: "INSERT INTO test2(comment) VALUES(?);", parameters: ["Cool"], named: [:])
+try connection.execute(query: "INSERT INTO test2(comment) VALUES(?);", parameters: ["Star"], named: [:])
+let res = try connection.execute(query: "SELECT ? FROM test1 as a;", parameters: ["*"/*, "test1", "a"*/], named: [:])
+
+guard let results = res else {
+    print("No results arrived...")
+    exit(1)
+}
+
+print("Coulumns:", try results.columns())
+while let row = try results.next() {
+    print("Row:", row)
+}
+
+print("OK")
+
+print("aa:", next(name: "a"))
+print(next(name: "b"))*/
+
 let rdbc = RDBC()
 rdbc.register(driver: SQLiteDriver(), dialect: SQLiteDialect())
 
@@ -307,18 +429,20 @@ let pool = try rdbc.pool(url: "sqlite:///tmp/crlrsdc.sqlite")
 //let t1 = pool.select(from: "test1").map{ $0["firstname"] }
 //let t2 = pool.select(from: "test2").map("lastname")
 
-/*pool.select(from: "").execute().flatMap{$0}.flatMap { results in
+pool.select(from: "test1").zip(with: pool.select(from: "test2")).map { t1, t2 in
+    [t1["lastname"], t2["comment"]]
+}.execute().flatMap{$0}.flatMap { results in
     results.columns.zip(results.all())
 }.onSuccess { (cols, rows) in
     print(cols)
     for row in rows {
-        print(row)
+        print(row.flatMap{$0})
     }
 }.onFailure { e in
     print("!!!Error:", e)
-}*/
+}
 
-pool.execute(query: "SELECT * FROM test1;", parameters: [], named: [:]).flatMap{$0}
+/*pool.execute(query: "SELECT * FROM test1;", parameters: [], named: [:]).flatMap{$0}
     .flatMap { results in
         results.columns.zip(results.all())
     }.onSuccess { (cols, rows) in
@@ -328,7 +452,7 @@ pool.execute(query: "SELECT * FROM test1;", parameters: [], named: [:]).flatMap{
         }
     }.onFailure { e in
         print("!!!Error:", e)
-}
+}*/
 
 /*t1.zip(with: t2, using: ["id"]).map { t1, t2 in
     [t1["a"], t2["b"]]
