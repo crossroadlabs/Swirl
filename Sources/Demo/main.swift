@@ -142,7 +142,7 @@ public extension Connection {
         
         return QueryImpl(connection: self,
                          dataset: ErasedTable(name: from, columns: columns),
-                         predicate: .null,
+                         predicate: nil,
                          order: "")
     }
 }
@@ -210,12 +210,6 @@ extension ErasedTable {
     init(_ table:Table) {
         self.init(name: table.name, columns: table.columns)
     }
-}
-
-public enum Predicate {
-    case `true`
-    case `false`
-    case null
 }
 
 public enum JoinDirection {
@@ -310,10 +304,33 @@ public extension Query {
         return QueryImpl(connection: connection, dataset: join, predicate: predicate, order: order)
     }
     
-    public func zip<B : Table, Q : Query>(with query:Q, _ condition: JoinCondition, type direction: JoinDirection) -> QueryImpl<Join<DS, B>> where Q.DS == B {
+    public func zip<B : Table, Q : Query>(with query:Q, outer direction: JoinDirection, _ condition: JoinCondition) -> QueryImpl<Join<DS, B>> where Q.DS == B {
         let join:Join<DS, B> = .outer(left: dataset, right: query.dataset, condition: condition, direction: direction)
         //TODO: glue predicated with AND
         return QueryImpl(connection: connection, dataset: join, predicate: predicate, order: order)
+    }
+}
+
+//TODO: implement for Joins
+public extension Query where DS : Table {
+    public func zip<B : Table, Q : Query>(with query:Q, _ f: (DS, B) -> Predicate) -> QueryImpl<Join<DS, B>> where Q.DS == B {
+        return zip(with: query, .on(f(self.dataset, query.dataset)))
+    }
+    
+    public func zip<B : Table, Q : Query>(with query:Q, outer direction: JoinDirection, _ f: (DS, B) -> Predicate) -> QueryImpl<Join<DS, B>> where Q.DS == B {
+        return zip(with: query, outer: direction, .on(f(self.dataset, query.dataset)))
+    }
+}
+
+public extension Query where DS : Table {
+    public func filter(_ f: (DS)->Predicate) -> QueryImpl<DS> {
+        return QueryImpl(connection: connection, dataset: dataset, predicate: f(dataset) && predicate, order: order)
+    }
+}
+
+public extension Query where DS : JoinProtocol, DS.Left : Table {
+    public func filter(_ f: (DS.Left, DS.Right)->Predicate) -> QueryImpl<DS> {
+        return QueryImpl(connection: connection, dataset: dataset, predicate: (dataset.datasets |> f) && predicate, order: order)
     }
 }
 
@@ -403,6 +420,176 @@ extension Dialect {
     }
 }
 
+public protocol MetaValueProtocol {
+    func render(dialect:Dialect, aliases:[String: String]) -> SQL
+}
+
+public enum MetaValue<T> {
+    case column(Column)
+    case `static`(T)
+}
+
+extension MetaValue : MetaValueProtocol {
+}
+
+public enum BinaryOp {
+    case and
+    case or
+    case xor
+    
+    case eq
+    case neq
+    case like
+}
+
+public indirect enum Predicate {
+    case null
+    case bool(Bool)
+    case compound(op:BinaryOp, Predicate, Predicate)
+    case comparison(op:BinaryOp, a:MetaValueProtocol?, b:MetaValueProtocol?)
+}
+
+extension Predicate : ExpressibleByBooleanLiteral {
+    public init(booleanLiteral value: Bool) {
+        self = .bool(value)
+    }
+}
+
+extension Predicate : ExpressibleByNilLiteral {
+    public init(nilLiteral: ()) {
+        self = .null
+    }
+}
+
+public func ==<T>(column:Column, value:T?) -> Predicate {
+    return .comparison(op: .eq, a: MetaValue<Any>.column(column), b: value.map {MetaValue.static($0)})
+}
+
+public func ==(column1:Column, column2:Column) -> Predicate {
+    return .comparison(op: .eq, a: MetaValue<Any>.column(column1), b: MetaValue<Any>.column(column2))
+}
+
+public func ==<T>(value:T?, column:Column) -> Predicate {
+    return .comparison(op: .eq, a: value.map {MetaValue.static($0)}, b: MetaValue<Any>.column(column))
+}
+
+public func ==<T : Equatable>(a:T?, b:T?) -> Predicate {
+    return .bool(a == b)
+}
+
+public func !=<T>(column:Column, value:T?) -> Predicate {
+    return .comparison(op: .neq, a: MetaValue<Any>.column(column), b: value.map {MetaValue.static($0)})
+}
+
+public func !=(column1:Column, column2:Column) -> Predicate {
+    return .comparison(op: .neq, a: MetaValue<Any>.column(column1), b: MetaValue<Any>.column(column2))
+}
+
+public func !=<T>(value:T?, column:Column) -> Predicate {
+    return .comparison(op: .neq, a: value.map {MetaValue.static($0)}, b: MetaValue<Any>.column(column))
+}
+
+public func !=<T : Equatable>(a:T?, b:T?) -> Predicate {
+    return .bool(a != b)
+}
+
+public func ~=(column:Column, value:String?) -> Predicate {
+    return .comparison(op: .neq, a: MetaValue<Any>.column(column), b: value.map {MetaValue.static($0)})
+}
+
+public func &&(p1:Predicate, p2:Predicate) -> Predicate {
+    switch (p1, p2) {
+    case (.bool(let p1), .bool(let p2)):
+        return p1 && p2
+    case (let p1, .bool(let p2)):
+        return p1 && p2
+    case (.bool(let p1), let p2):
+        return p1 && p2
+    default:
+        return .compound(op: .and, p1, p2)
+    }
+}
+
+public func &&(p1:Predicate, p2:Bool) -> Predicate {
+    return p2 ? p1 : .bool(false)
+}
+
+public func &&(p1:Bool, p2:Predicate) -> Predicate {
+    return p1 ? p2 : .bool(false)
+}
+
+public func &&(p1:Bool, p2:Bool) -> Predicate {
+    return .bool(p1 && p2)
+}
+
+public func ||(p1:Predicate, p2:Predicate) -> Predicate {
+    switch (p1, p2) {
+    case (.bool(let p1), .bool(let p2)):
+        return p1 || p2
+    case (let p1, .bool(let p2)):
+        return p1 || p2
+    case (.bool(let p1), let p2):
+        return p1 || p2
+    default:
+        return .compound(op: .or, p1, p2)
+    }
+}
+
+public func ||(p1:Predicate, p2:Bool) -> Predicate {
+    return p1
+}
+
+public func ||(p1:Bool, p2:Predicate) -> Predicate {
+    return p2
+}
+
+public func ||(p1:Bool, p2:Bool) -> Predicate {
+    return .bool(p1 || p2)
+}
+
+public func !=(p1:Predicate, p2:Predicate) -> Predicate {
+    switch (p1, p2) {
+    case (.bool(let p1), .bool(let p2)):
+        return .bool(p1 != p2)
+    case (let p1, .bool(let p2)):
+        return p1 != p2
+    case (.bool(let p1), let p2):
+        return p1 != p2
+    default:
+        return .compound(op: .xor, p1, p2)
+    }
+}
+
+public func !=(p1:Bool, p2:Predicate) -> Predicate {
+    return .compound(op: .xor, .bool(p1), p2)
+}
+
+public func !=(p1:Predicate, p2:Bool) -> Predicate {
+    return .compound(op: .xor, p1, .bool(p2))
+}
+
+public func !=(p1:Bool, p2:Bool) -> Predicate {
+    return .bool(p1 != p2)
+}
+
+extension Predicate {
+    func render(dialect:Dialect, aliases:[String: String]) -> SQL {
+        fatalError()
+    }
+}
+
+public extension MetaValue {
+    public func render(dialect:Dialect, aliases:[String: String]) -> SQL {
+        fatalError()
+    }
+}
+
+let t = ErasedTable(name: "lala")
+let c = ErasedColumn(name: "qwe", in: t)
+
+let p:Predicate = 1 == 2 || 2 == c//(c == "b" && "b" != c || c != c && 1 == c) != (c == "a")
+print(p)
+
 /*let driver = SQLiteDriver()
 let connection = try driver.connect(url: "sqlite:///tmp/crlrsdc.sqlite", params: [:])
 try connection.execute(query: "CREATE TABLE test2(id INTEGER PRIMARY KEY AUTOINCREMENT, comment);", parameters: [], named: [:])
@@ -434,9 +621,21 @@ let pool = try rdbc.pool(url: "sqlite:///tmp/crlrsdc.sqlite")
 //let t1 = pool.select(from: "test1").map{ $0["firstname"] }
 //let t2 = pool.select(from: "test2").map("lastname")
 
-pool.select(from: "test1").zip(with: pool.select(from: "test2").map("comment"), .using(["id"]))/*.map { t1, t2 in
-    [t2["comment"]]
-}*/.execute().flatMap{$0}.flatMap { results in
+let t1 = pool.select(from: "test1")
+let t2 = pool.select(from: "test2").zip(with: t1, .on(true))
+
+//pool.select(from: "test1").map {t1 in [t1["firstname"]]}.zip(with: t2, .using(["id"]), type: .left)
+// SELECT a.`id`, a.`name` from `test1` as a;
+
+// SELECT a.`firstname`, b.`comment` from `test1` as a INNER JOIN `test2` as b USING('id') WHERE a.`firstname` == "Daniel";
+
+pool.select(from: "test1").zip(with: pool.select(from: "test2")) { t1, t2 in
+    t1["id"] == t2["id"]
+}.map { t1, t2 in
+    [t1["firstname"], t2["comment"]]
+}.filter { t1, t2 in
+    t1["firstname"] == "Daniel"
+}.execute().flatMap{$0}.flatMap { results in
     results.columns.zip(results.all())
 }.onSuccess { (cols, rows) in
     print(cols)
@@ -446,6 +645,13 @@ pool.select(from: "test1").zip(with: pool.select(from: "test2").map("comment"), 
 }.onFailure { e in
     print("!!!Error:", e)
 }
+
+/*public indirect enum Predicate {
+    case null
+    case compound(op:BinaryOp, Predicate, Predicate)
+    case transformation(op:UnaryOp, field:String)
+    case comparison(op:BinaryOp, field:String, value:Any?)
+}*/
 
 /*pool.execute(query: "SELECT * FROM test1;", parameters: [], named: [:]).flatMap{$0}
     .flatMap { results in
