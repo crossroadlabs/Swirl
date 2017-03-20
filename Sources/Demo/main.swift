@@ -152,7 +152,7 @@ public enum Columns {
 public protocol Dataset {
     var tables:[Table] {get}
     
-    func render(dialect:Dialect, name:String) -> SQL
+    func render(dialect:Dialect, aliases:[String: String]) -> SQL
 }
 
 public protocol Table : Named, Dataset {
@@ -170,8 +170,8 @@ public extension Table {
 }
 
 public extension Table {
-    public func render(dialect:Dialect, name:String) -> SQL {
-        return dialect.render(table: self, name: name)
+    public func render(dialect:Dialect, aliases: [String: String]) -> SQL {
+        return dialect.render(table: self, aliases: aliases)
     }
 }
 
@@ -245,8 +245,8 @@ public extension JoinProtocol {
 }
 
 public extension JoinProtocol {
-    public func render(dialect:Dialect, name: String) -> SQL {
-        return dialect.render(join: self, name: name)
+    public func render(dialect:Dialect, aliases:[String: String]) -> SQL {
+        return dialect.render(join: self, aliases: aliases)
     }
 }
 
@@ -367,10 +367,6 @@ extension Dialect {
         return "?"
     }
     
-    /*func render(columnsCount: Int) -> String {
-        return Array(repeating: param, count: columnsCount).joined(separator: ", ")
-    }*/
-    
     func render(column: String, table: String, escape:Bool) -> String {
         let col = escape ? "`\(column)`" : column
         return "\(table).\(col)"
@@ -385,42 +381,44 @@ extension Dialect {
         }
     }
     
-    func render(columns dataset:Dataset) -> SQL {
-        let tables = dataset.tables
-        //let aliases =
-        
-        let columns = tables.reversed().enumerated().map { (i, table) in
-            (table.columns, name(at: i))
-        }.reversed().flatMap(render).joined(separator: ", ")
-        
-        //let sql = render(columnsCount: columns.count)
+    func render(columns dataset:Dataset, aliases:[String: String]) -> SQL {
+        let columns = dataset.tables.flatMap { table in
+            aliases[table.name].map { alias in
+                (table.columns, alias)
+            }
+        }.flatMap(render).joined(separator: ", ")
         
         return SQL(query: columns, parameters: [])
     }
     
     func render<DS: Dataset>(dataset:DS) -> SQL {
-        let columns = render(columns: dataset)
-        let source = dataset.render(dialect: self, name: "a")
+        let aliases = toMap(dataset.tables.reversed().enumerated().map { (i, table) in
+            (table.name, name(at: i))
+        })
+        
+        let columns = render(columns: dataset, aliases: aliases)
+        let source = dataset.render(dialect: self, aliases: aliases)
         
         return "SELECT " + columns + " FROM " + source + ";"
     }
     
-    func render(table:Table, name:String) -> SQL {
-        return SQL(query: "`\(table.name)` as \(name)", parameters: [])
+    func render(table:Table, aliases: [String: String]) -> SQL {
+        let alias = aliases[table.name]!
+        return SQL(query: "`\(table.name)` as \(alias)", parameters: [])
     }
     
-    func render<J: JoinProtocol>(join:J, name:String) -> SQL {
+    func render<J: JoinProtocol>(join:J, aliases: [String: String]) -> SQL {
         switch join.join {
             //CROSS
         case .cross(left: let left, right: let right):
-            return left.render(dialect: self, name: next(name: name)) + " CROSS JOIN " + right.render(dialect: self, name: name)
+            return left.render(dialect: self, aliases: aliases) + " CROSS JOIN " + right.render(dialect: self, aliases: aliases)
             //NATURAL
         case .inner(left: let left, right: let right, condition: .natural):
-            return left.render(dialect: self, name: next(name: name)) + " NATURAL JOIN " + right.render(dialect: self, name: name)
+            return left.render(dialect: self, aliases: aliases) + " NATURAL JOIN " + right.render(dialect: self, aliases: aliases)
             //INNER with USING
         case .inner(left: let left, right: let right, condition: .using(let columns)):
             let using = columns.map {"`\($0)`"}.joined(separator: ", ")
-            return left.render(dialect: self, name: next(name: name)) + " INNER JOIN " + right.render(dialect: self, name: name) + " USING(\(using))"
+            return left.render(dialect: self, aliases: aliases) + " INNER JOIN " + right.render(dialect: self, aliases: aliases) + " USING(\(using))"
         default:
             fatalError("Not implemented")
         }
@@ -465,6 +463,17 @@ extension Predicate : ExpressibleByBooleanLiteral {
 extension Predicate : ExpressibleByNilLiteral {
     public init(nilLiteral: ()) {
         self = .null
+    }
+}
+
+extension Predicate {
+    func map<B>(_ f: (Predicate)->B) -> B? {
+        switch self {
+        case .null:
+            return nil
+        default:
+            return f(self)
+        }
     }
 }
 
@@ -636,7 +645,7 @@ let t2 = pool.select(from: "test2").zip(with: t1, .on(true))
 
 // SELECT a.`firstname`, b.`comment` from `test1` as a INNER JOIN `test2` as b USING('id') WHERE a.`firstname` == "Daniel";
 
-pool.select(from: "test1").zip(with: pool.select(from: "test2"), .using(["id"]))/* { t1, t2 in
+pool.select(from: "test1").zip(with: pool.select(from: "test2"), .natural)/* { t1, t2 in
     t1["id"] == t2["id"]
 }*/.map { t1, t2 in
     [t1["firstname"], t2["comment"]]
