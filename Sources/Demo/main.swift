@@ -74,10 +74,7 @@ public extension Query {
             throw RDBCFrameworkError.noDialect
         }
         
-        let columns = dialect.render(columns: dataset)
-        let source = dataset.render(dialect: dialect, name: "a")
-        
-        return "SELECT " + columns + " FROM " + source + ";"
+        return dialect.render(dataset: dataset)
     }
     
     public func execute(dialect:Dialect? = nil) -> Future<ResultSet?> {
@@ -389,13 +386,23 @@ extension Dialect {
     }
     
     func render(columns dataset:Dataset) -> SQL {
-        let columns = dataset.tables.reversed().enumerated().map { (i, table) in
+        let tables = dataset.tables
+        //let aliases =
+        
+        let columns = tables.reversed().enumerated().map { (i, table) in
             (table.columns, name(at: i))
         }.reversed().flatMap(render).joined(separator: ", ")
         
         //let sql = render(columnsCount: columns.count)
         
         return SQL(query: columns, parameters: [])
+    }
+    
+    func render<DS: Dataset>(dataset:DS) -> SQL {
+        let columns = render(columns: dataset)
+        let source = dataset.render(dialect: self, name: "a")
+        
+        return "SELECT " + columns + " FROM " + source + ";"
     }
     
     func render(table:Table, name:String) -> SQL {
@@ -629,13 +636,13 @@ let t2 = pool.select(from: "test2").zip(with: t1, .on(true))
 
 // SELECT a.`firstname`, b.`comment` from `test1` as a INNER JOIN `test2` as b USING('id') WHERE a.`firstname` == "Daniel";
 
-pool.select(from: "test1").zip(with: pool.select(from: "test2")) { t1, t2 in
+pool.select(from: "test1").zip(with: pool.select(from: "test2"), .using(["id"]))/* { t1, t2 in
     t1["id"] == t2["id"]
-}.map { t1, t2 in
+}*/.map { t1, t2 in
     [t1["firstname"], t2["comment"]]
-}.filter { t1, t2 in
+}/*.filter { t1, t2 in
     t1["firstname"] == "Daniel"
-}.execute().flatMap{$0}.flatMap { results in
+}*/.execute().flatMap{$0}.flatMap { results in
     results.columns.zip(results.all())
 }.onSuccess { (cols, rows) in
     print(cols)
