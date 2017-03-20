@@ -78,10 +78,6 @@ public extension Query {
         let source = dataset.render(dialect: dialect, name: "a")
         
         return "SELECT " + columns + " FROM " + source + ";"
-        
-        //return SQL(query: "select \(colParams) from ", parameters: <#T##[Any?]#>)
-        
-        //return dataset.render(dialect: dialect)
     }
     
     public func execute(dialect:Dialect? = nil) -> Future<ResultSet?> {
@@ -308,13 +304,13 @@ public extension Query {
         return QueryImpl(connection: connection, dataset: join, predicate: predicate, order: order)
     }
     
-    public func zip<B : Table, Q : Query>(with query:Q, using condition: JoinCondition) -> QueryImpl<Join<DS, B>> where Q.DS == B {
+    public func zip<B : Table, Q : Query>(with query:Q, _ condition: JoinCondition) -> QueryImpl<Join<DS, B>> where Q.DS == B {
         let join:Join<DS, B> = .inner(left: dataset, right: query.dataset, condition: condition)
         //TODO: glue predicated with AND
         return QueryImpl(connection: connection, dataset: join, predicate: predicate, order: order)
     }
     
-    public func zip<B : Table, Q : Query>(with query:Q, using condition: JoinCondition, type direction: JoinDirection) -> QueryImpl<Join<DS, B>> where Q.DS == B {
+    public func zip<B : Table, Q : Query>(with query:Q, _ condition: JoinCondition, type direction: JoinDirection) -> QueryImpl<Join<DS, B>> where Q.DS == B {
         let join:Join<DS, B> = .outer(left: dataset, right: query.dataset, condition: condition, direction: direction)
         //TODO: glue predicated with AND
         return QueryImpl(connection: connection, dataset: join, predicate: predicate, order: order)
@@ -361,16 +357,17 @@ extension Dialect {
         return Array(repeating: param, count: columnsCount).joined(separator: ", ")
     }*/
     
-    func render(column: String, table: String) -> String {
-        return "\(table).`\(column)`"
+    func render(column: String, table: String, escape:Bool) -> String {
+        let col = escape ? "`\(column)`" : column
+        return "\(table).\(col)"
     }
     
     func render(columns: Columns, table: String) -> [String] {
         switch columns {
         case .all:
-            return [render(column: "*", table: table)]
+            return [render(column: "*", table: table, escape: false)]
         case .list(let columns):
-            return columns.map {render(column: $0, table: table)}
+            return columns.map {render(column: $0, table: table, escape: true)}
         }
     }
     
@@ -436,9 +433,9 @@ let pool = try rdbc.pool(url: "sqlite:///tmp/crlrsdc.sqlite")
 //let t1 = pool.select(from: "test1").map{ $0["firstname"] }
 //let t2 = pool.select(from: "test2").map("lastname")
 
-pool.select(from: "test1").zip(with: pool.select(from: "test2"), using: .using(["id"])).map { t1, t2 in
-    [t1["lastname"], t2["comment"]]
-}.execute().flatMap{$0}.flatMap { results in
+pool.select(from: "test1").zip(with: pool.select(from: "test2").map("comment"), .using(["id"]))/*.map { t1, t2 in
+    [t2["comment"]]
+}*/.execute().flatMap{$0}.flatMap { results in
     results.columns.zip(results.all())
 }.onSuccess { (cols, rows) in
     print(cols)
