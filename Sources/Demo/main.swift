@@ -393,6 +393,7 @@ extension Dialect {
             //NATURAL
         case .inner(left: let left, right: let right, condition: .natural):
             return left.render(dialect: self, name: next(name: name)) + " NATURAL JOIN " + right.render(dialect: self, name: name)
+            //INNER with USING
         case .inner(left: let left, right: let right, condition: .using(let columns)):
             let using = columns.map {"`\($0)`"}.joined(separator: ", ")
             return left.render(dialect: self, name: next(name: name)) + " INNER JOIN " + right.render(dialect: self, name: name) + " USING(\(using))"
