@@ -800,15 +800,27 @@ let c = ErasedColumn(name: "qwe", in: t)
 let p:Predicate = 1 <= 2 || 2 > c//(c == "b" && "b" != c || c != c && 1 == c) != (c == "a")
 print(p)
 
-/*let driver = SQLiteDriver()
-let connection = try driver.connect(url: "sqlite:///tmp/crlrsdc.sqlite", params: [:])
-try connection.execute(query: "CREATE TABLE test2(id INTEGER PRIMARY KEY AUTOINCREMENT, comment);", parameters: [], named: [:])
-try connection.execute(query: "INSERT INTO test2(comment) VALUES(?);", parameters: ["Awesome"], named: [:])
-try connection.execute(query: "INSERT INTO test2(comment) VALUES(?);", parameters: ["Cool"], named: [:])
-try connection.execute(query: "INSERT INTO test2(comment) VALUES(?);", parameters: ["Star"], named: [:])
-let res = try connection.execute(query: "SELECT ? FROM test1 as a;", parameters: ["*"/*, "test1", "a"*/], named: [:])
+//let driver = SQLiteDriver()
+//let connection = try driver.connect(url: "sqlite:///tmp/crlrsdc3.sqlite", params: [:])
 
-guard let results = res else {
+//
+/*try connection.execute(query: "CREATE TABLE person(id INTEGER PRIMARY KEY AUTOINCREMENT, firstname TEXT, lastname TEXT);", parameters: [], named: [:])
+try connection.execute(query: "INSERT INTO person(firstname, lastname) VALUES(?, :last);", parameters: ["Daniel",], named: [":last":"Leping"])
+try connection.execute(query: "INSERT INTO person(firstname, lastname) VALUES(?, ?);", parameters: ["John", "Lennon"], named: [:])
+try connection.execute(query: "INSERT INTO person(firstname, lastname) VALUES(@first, :last);", parameters: [], named: [":last":"McCartney", "@first": "Paul"])
+
+try connection.execute(query: "CREATE TABLE comment(id INTEGER PRIMARY KEY AUTOINCREMENT, person_id INTEGER, comment TEXT, FOREIGN KEY(person_id) REFERENCES person(id));", parameters: [], named: [:])
+try connection.execute(query: "INSERT INTO comment(person_id, comment) VALUES(?, ?);", parameters: [1, "Awesome"], named: [:])
+try connection.execute(query: "INSERT INTO comment(person_id, comment) VALUES(?, ?);", parameters: [2, "Cool"], named: [:])
+try connection.execute(query: "INSERT INTO comment(person_id, comment) VALUES(?, ?);", parameters: [3, "Star"], named: [:])*/
+
+//try connection.execute(query: "INSERT INTO comment(person_id, comment) VALUES(?, ?);", parameters: [1, "Developer"], named: [:])
+//try connection.execute(query: "INSERT INTO comment(person_id, comment) VALUES(?, ?);", parameters: [2, "Musician"], named: [:])
+//try connection.execute(query: "INSERT INTO comment(person_id, comment) VALUES(?, ?);", parameters: [3, "Musician"], named: [:])
+
+//let res = try connection.execute(query: "SELECT ? FROM test1 as a;", parameters: ["*"/*, "test1", "a"*/], named: [:])
+
+/*guard let results = res else {
     print("No results arrived...")
     exit(1)
 }
@@ -818,37 +830,37 @@ while let row = try results.next() {
     print("Row:", row)
 }
 
-print("OK")
+print("OK")*/
 
 print("aa:", next(name: "a"))
-print(next(name: "b"))*/
+print(next(name: "b"))
 
 let rdbc = RDBC()
 rdbc.register(driver: SQLiteDriver(), dialect: SQLiteDialect())
 
-let pool = try rdbc.pool(url: "sqlite:///tmp/crlrsdc.sqlite")
+let pool = try rdbc.pool(url: "sqlite:///tmp/crlrsdc3.sqlite")
 
 //let t1 = pool.select(from: "test1").map{ $0["firstname"] }
 //let t2 = pool.select(from: "test2").map("lastname")
 
-let t1 = Q.table(name: "test1")
-let t2 = Q.table(name: "test2")
+let t1 = Q.table(name: "person")
+let t2 = Q.table(name: "comment")
 
 //pool.select(from: "test1").map {t1 in [t1["firstname"]]}.zip(with: t2, .using(["id"]), type: .left)
 // SELECT a.`id`, a.`name` from `test1` as a;
 
 // SELECT a.`firstname`, b.`comment` from `test1` as a INNER JOIN `test2` as b USING('id') WHERE a.`firstname` == "Daniel";
 
-t1.zip(with: t2) { t1, t2 in
-    t1["id"] == t2["id"]
-}.map { t1, t2 in
-    [t1["firstname"], t2["comment"]]
+t1.zip(with: t2, outer: .left) { person, comment in
+    person["id"] == comment["person_id"]
+}.map { person, comment in
+    [person["firstname"], person["lastname"]]
 }/*.filter { t1, _ in
     t1["firstname"] == "Daniel" || t1["lastname"] == "McCartney"
-}*/.filter { t1, _ in
-    t1["id"] > 1
-}.filter { t1, t2 in
-    t1["lastname"] == "Leping" || t2["comment"] == "Cool"
+}*/.filter { person, _ in
+    person["id"] > 0
+}.filter { person, comment in
+    comment["comment"] == "Musician"// || comment["comment"] == "Cool"
 }.execute(on: pool).flatMap{$0}.flatMap { results in
     results.columns.zip(results.all())
 }.onSuccess { (cols, rows) in
