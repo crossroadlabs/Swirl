@@ -399,13 +399,70 @@ extension Dialect {
         let columns = render(columns: dataset, aliases: aliases)
         let source = dataset.render(dialect: self, aliases: aliases)
         
-        return "SELECT " + columns + " FROM " + source + ";"
+        let sql = "SELECT " + columns + " FROM " + source + ";"
+        let paramsFixed = sql.parameters.map { param -> Any? in
+            param.map { value in
+                switch value {
+                //SQLITE doesn't support boolean
+                case let b as Bool:
+                    return b ? 1 : 0
+                default:
+                    return value
+                }
+            }
+        }
+        
+        return SQL(query: sql.query, parameters: paramsFixed)
     }
     
     func render(table:Table, aliases: [String: String]) -> SQL {
         let alias = aliases[table.name]!
         return SQL(query: "`\(table.name)` as \(alias)", parameters: [])
     }
+    
+    func render<T>(value: T?) -> SQL {
+        return SQL(query: param, parameters: [value])
+    }
+    
+    func render(op:BinaryOp, _ a:SQL, _ b:SQL) -> SQL {
+        switch op {
+        case .and:
+            return "(" + a + " AND " + b + ")"
+        case .or:
+            return "(" + a + " OR " + b + ")"
+        case .xor:
+            return "(" + a + " != " + b + ")"
+        case .eq:
+            return "(" + a + " == " + b + ")"
+        case .neq:
+            return "(" + a + " != " + b + ")"
+        default:
+            fatalError("Not implemented")
+        }
+    }
+    
+    func render(metaValue:MetaValueProtocol?, aliases: [String: String]) -> SQL {
+        return metaValue.map { value in
+            value.render(dialect: self, aliases: aliases)
+        } ?? self.render(value: Optional<Any>.none)
+    }
+    
+    func render(comparison op: BinaryOp, _ a:MetaValueProtocol?, _ b:MetaValueProtocol?, aliases: [String: String]) -> SQL {
+        return render(op: op, render(metaValue: a, aliases: aliases), render(metaValue: b, aliases: aliases))
+    }
+    
+    func render(compound op: BinaryOp, _ a:Predicate, _ b:Predicate, aliases: [String: String]) -> SQL? {
+        let asql = a.render(dialect: self, aliases: aliases) ?? render(value: Optional<Any>.none)
+        let bsql = b.render(dialect: self, aliases: aliases) ?? render(value: Optional<Any>.none)
+        
+        return render(op: op, asql, bsql)
+    }
+    
+    /*return dialect.render(value: bool)
+    case .comparison(op: let op, a: let a, b: let b):
+    return dialect.render(comparison: op, a, b)
+    case .compound(op: let op, let a, let b):
+    return dialect.render(compound: op, a, b)*/
     
     func render<J: JoinProtocol>(join:J, aliases: [String: String]) -> SQL {
         switch join.join {
@@ -419,6 +476,9 @@ extension Dialect {
         case .inner(left: let left, right: let right, condition: .using(let columns)):
             let using = columns.map {"`\($0)`"}.joined(separator: ", ")
             return left.render(dialect: self, aliases: aliases) + " INNER JOIN " + right.render(dialect: self, aliases: aliases) + " USING(\(using))"
+        case .inner(left: let left, right: let right, condition: .on(let predicate)):
+            let on = predicate.render(dialect: self, aliases: aliases) ?? render(value: true)
+            return left.render(dialect: self, aliases: aliases) + " INNER JOIN " + right.render(dialect: self, aliases: aliases) + " ON " + on
         default:
             fatalError("Not implemented")
         }
@@ -589,14 +649,30 @@ public func !=(p1:Bool, p2:Bool) -> Predicate {
 }
 
 extension Predicate {
-    func render(dialect:Dialect, aliases:[String: String]) -> SQL {
-        fatalError()
+    func render(dialect:Dialect, aliases:[String: String]) -> SQL? {
+        switch self {
+        case .null:
+            return nil
+        case .bool(let bool):
+            return dialect.render(value: bool)
+        case .comparison(op: let op, a: let a, b: let b):
+            return dialect.render(comparison: op, a, b, aliases: aliases)
+        case .compound(op: let op, let a, let b):
+            return dialect.render(compound: op, a, b, aliases: aliases)
+        }
     }
 }
 
 public extension MetaValue {
     public func render(dialect:Dialect, aliases:[String: String]) -> SQL {
-        fatalError()
+        switch self {
+        case .column(let column):
+            let alias = aliases[column.table.name]!
+            let column = dialect.render(column: column.name, table: alias, escape: true)
+            return SQL(query: column, parameters: [])
+        case .static(let value):
+            return dialect.render(value: value)
+        }
     }
 }
 
@@ -645,9 +721,9 @@ let t2 = pool.select(from: "test2").zip(with: t1, .on(true))
 
 // SELECT a.`firstname`, b.`comment` from `test1` as a INNER JOIN `test2` as b USING('id') WHERE a.`firstname` == "Daniel";
 
-pool.select(from: "test1").zip(with: pool.select(from: "test2"), .natural)/* { t1, t2 in
+pool.select(from: "test1").zip(with: pool.select(from: "test2")) { t1, t2 in
     t1["id"] == t2["id"]
-}*/.map { t1, t2 in
+}.map { t1, t2 in
     [t1["firstname"], t2["comment"]]
 }/*.filter { t1, t2 in
     t1["firstname"] == "Daniel"
