@@ -11,8 +11,6 @@ import RDBC
 public protocol Query {
     associatedtype DS : Dataset
     
-    var connection:Connection {get}
-    
     var dataset:DS {get}
     var predicate:Predicate {get}
     var order:Any {get}
@@ -69,34 +67,27 @@ private func name(at index: Int) -> String {
 }
 
 public extension Query {
-    private func render(dialect:Dialect? = nil) throws -> SQL {
-        guard let dialect = dialect.or(else: (connection as? DialectRich).map({$0.dialect})) else {
-            throw RDBCFrameworkError.noDialect
-        }
-        
+    private func render(dialect:Dialect) -> SQL {
         return dialect.render(dataset: dataset, filter: self.predicate)
     }
     
-    public func execute(dialect:Dialect? = nil) -> Future<ResultSet?> {
-        let connection = self.connection
-        
-        return future(context: immediate) {
-            try self.render(dialect: dialect)
-        }.flatMap { sql in
-            connection.execute(sql: sql)
+    public func execute(on connection: Connection, dialect:Dialect? = nil) -> Future<ResultSet?> {
+        guard let dialect = dialect.or(else: (connection as? DialectRich).map({$0.dialect})) else {
+            return Future(error: RDBCFrameworkError.noDialect)
         }
+        
+        return connection.execute(sql: self.render(dialect: dialect))
     }
 }
 
+public typealias Q = QueryImpl<ErasedTable>
+
 public struct QueryImpl<DS : Dataset> : Query {
-    public let connection:Connection
-    
     public let dataset:DS
     public let predicate:Predicate
     public let order:Any
     
-    init(connection:Connection, dataset:DS, predicate:Predicate, order:Any) {
-        self.connection = connection
+    init(dataset:DS, predicate:Predicate, order:Any) {
         self.dataset = dataset
         self.predicate = predicate
         self.order = order
@@ -116,29 +107,26 @@ public extension Query where DS : Table {
     
     public func map(_ f: @autoclosure (DS)->[String]) -> QueryImpl<ErasedTable> {
         let dataset = ErasedTable(name: self.dataset.name, columns: .list(f(self.dataset)))
-        return QueryImpl(connection: connection,
-                         dataset: dataset,
+        return QueryImpl(dataset: dataset,
                          predicate: predicate,
                          order: order)
     }
     
     public func map(_ f: @autoclosure (DS)->String) -> QueryImpl<ErasedTable> {
         let dataset = ErasedTable(name: self.dataset.name, columns: .list([f(self.dataset)]))
-        return QueryImpl(connection: connection,
-                         dataset: dataset,
+        return QueryImpl(dataset: dataset,
                          predicate: predicate,
                          order: order)
     }
 }
 
-public extension Connection {
-    public func select(_ columns: [String]? = nil, from: String) -> QueryImpl<ErasedTable> {
+public extension Query {
+    public static func select(_ columns: [String]? = nil, from: String) -> QueryImpl<ErasedTable> {
         let columns:Columns = columns.map { seq in
             .list(seq)
-        }.getOr(else: .all)
+            }.getOr(else: .all)
         
-        return QueryImpl(connection: self,
-                         dataset: ErasedTable(name: from, columns: columns),
+        return QueryImpl(dataset: ErasedTable(name: from, columns: columns),
                          predicate: nil,
                          order: "")
     }
@@ -292,19 +280,19 @@ public extension Query {
     public func zip<B : Table, Q : Query>(with query:Q) -> QueryImpl<Join<DS, B>> where Q.DS == B {
         let join:Join<DS, B> = .cross(left: dataset, right: query.dataset)
         //TODO: glue predicated with AND
-        return QueryImpl(connection: connection, dataset: join, predicate: predicate, order: order)
+        return QueryImpl(dataset: join, predicate: predicate, order: order)
     }
     
     public func zip<B : Table, Q : Query>(with query:Q, _ condition: JoinCondition) -> QueryImpl<Join<DS, B>> where Q.DS == B {
         let join:Join<DS, B> = .inner(left: dataset, right: query.dataset, condition: condition)
         //TODO: glue predicated with AND
-        return QueryImpl(connection: connection, dataset: join, predicate: predicate, order: order)
+        return QueryImpl(dataset: join, predicate: predicate, order: order)
     }
     
     public func zip<B : Table, Q : Query>(with query:Q, outer direction: JoinDirection, _ condition: JoinCondition) -> QueryImpl<Join<DS, B>> where Q.DS == B {
         let join:Join<DS, B> = .outer(left: dataset, right: query.dataset, condition: condition, direction: direction)
         //TODO: glue predicated with AND
-        return QueryImpl(connection: connection, dataset: join, predicate: predicate, order: order)
+        return QueryImpl(dataset: join, predicate: predicate, order: order)
     }
 }
 
@@ -321,13 +309,13 @@ public extension Query where DS : Table {
 
 public extension Query where DS : Table {
     public func filter(_ f: (DS)->Predicate) -> QueryImpl<DS> {
-        return QueryImpl(connection: connection, dataset: dataset, predicate: f(dataset) && predicate, order: order)
+        return QueryImpl(dataset: dataset, predicate: f(dataset) && predicate, order: order)
     }
 }
 
 public extension Query where DS : JoinProtocol, DS.Left : Table {
     public func filter(_ f: (DS.Left, DS.Right)->Predicate) -> QueryImpl<DS> {
-        return QueryImpl(connection: connection, dataset: dataset, predicate: (dataset.datasets |> f) && predicate, order: order)
+        return QueryImpl(dataset: dataset, predicate: (dataset.datasets |> f) && predicate, order: order)
     }
 }
 
@@ -352,8 +340,7 @@ public extension Query where DS : JoinProtocol, DS.Left : Table {
         
         let join = dataset.replace(left: newleft, right: newright)
         
-        return QueryImpl(connection: connection,
-                         dataset: join,
+        return QueryImpl(dataset: join,
                          predicate: predicate,
                          order: order)
     }
@@ -730,21 +717,21 @@ let pool = try rdbc.pool(url: "sqlite:///tmp/crlrsdc.sqlite")
 //let t1 = pool.select(from: "test1").map{ $0["firstname"] }
 //let t2 = pool.select(from: "test2").map("lastname")
 
-let t1 = pool.select(from: "test1")
-let t2 = pool.select(from: "test2").zip(with: t1, .on(true))
+let t1 = Q.select(from: "test1")
+let t2 = Q.select(from: "test2").zip(with: t1, .on(true))
 
 //pool.select(from: "test1").map {t1 in [t1["firstname"]]}.zip(with: t2, .using(["id"]), type: .left)
 // SELECT a.`id`, a.`name` from `test1` as a;
 
 // SELECT a.`firstname`, b.`comment` from `test1` as a INNER JOIN `test2` as b USING('id') WHERE a.`firstname` == "Daniel";
 
-pool.select(from: "test1").zip(with: pool.select(from: "test2")) { t1, t2 in
+Q.select(from: "test1").zip(with: Q.select(from: "test2")) { t1, t2 in
     t1["id"] == t2["id"]
 }.map { t1, t2 in
     [t1["firstname"], t2["comment"]]
 }.filter { t1, t2 in
     t1["firstname"] == "Daniel" || t2["comment"] == "Cool"
-}.execute().flatMap{$0}.flatMap { results in
+}.execute(on: pool).flatMap{$0}.flatMap { results in
     results.columns.zip(results.all())
 }.onSuccess { (cols, rows) in
     print(cols)
