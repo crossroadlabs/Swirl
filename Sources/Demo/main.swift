@@ -124,11 +124,29 @@ public extension Query {
     public static func select(_ columns: [String]? = nil, from: String) -> QueryImpl<ErasedTable> {
         let columns:Columns = columns.map { seq in
             .list(seq)
-            }.getOr(else: .all)
+        }.getOr(else: .all)
         
         return QueryImpl(dataset: ErasedTable(name: from, columns: columns),
                          predicate: nil,
                          order: "")
+    }
+    
+    public static func table(name: String) -> QueryImpl<ErasedTable> {
+        return QueryImpl(dataset: ErasedTable(name: name, columns: .all),
+                         predicate: nil,
+                         order: "")
+    }
+}
+
+public extension Query where DS : Table {
+    public func select(_ columns: [String]? = nil) -> QueryImpl<ErasedTable> {
+        let columns:Columns = columns.map { seq in
+            .list(seq)
+        }.getOr(else: .all)
+        
+        return QueryImpl(dataset: ErasedTable(name: dataset.name, columns: columns),
+                         predicate: predicate,
+                         order: order)
     }
 }
 
@@ -717,20 +735,22 @@ let pool = try rdbc.pool(url: "sqlite:///tmp/crlrsdc.sqlite")
 //let t1 = pool.select(from: "test1").map{ $0["firstname"] }
 //let t2 = pool.select(from: "test2").map("lastname")
 
-let t1 = Q.select(from: "test1")
-let t2 = Q.select(from: "test2").zip(with: t1, .on(true))
+let t1 = Q.table(name: "test1")
+let t2 = Q.table(name: "test2")
 
 //pool.select(from: "test1").map {t1 in [t1["firstname"]]}.zip(with: t2, .using(["id"]), type: .left)
 // SELECT a.`id`, a.`name` from `test1` as a;
 
 // SELECT a.`firstname`, b.`comment` from `test1` as a INNER JOIN `test2` as b USING('id') WHERE a.`firstname` == "Daniel";
 
-Q.select(from: "test1").zip(with: Q.select(from: "test2")) { t1, t2 in
+t1.zip(with: t2) { t1, t2 in
     t1["id"] == t2["id"]
 }.map { t1, t2 in
     [t1["firstname"], t2["comment"]]
+}.filter { t1, _ in
+    t1["firstname"] == "Daniel" || t1["lastname"] == "McCartney"
 }.filter { t1, t2 in
-    t1["firstname"] == "Daniel" || t2["comment"] == "Cool"
+    t1["lastname"] == "Leping" || t2["comment"] == "Cool"
 }.execute(on: pool).flatMap{$0}.flatMap { results in
     results.columns.zip(results.all())
 }.onSuccess { (cols, rows) in
