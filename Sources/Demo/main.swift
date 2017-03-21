@@ -2,6 +2,7 @@
 import Foundation
 
 import Boilerplate
+@_exported import enum Boilerplate.Null
 import ExecutionContext
 import Future
 
@@ -441,9 +442,9 @@ extension Dialect {
         case .or:
             return "(" + a + " OR " + b + ")"
         case .xor:
-            return "(" + a + " != " + b + ")"
+            return "(" + a + " IS NOT " + b + ")"
         case .eq:
-            return "(" + a + " == " + b + ")"
+            return "(" + a + " IS " + b + ")"
         case .gt:
             return "(" + a + " > " + b + ")"
         case .lt:
@@ -601,6 +602,43 @@ extension Double : RDBCComparable {
 extension Float : RDBCComparable {
 }
 
+/*public struct Null : ExpressibleByNilLiteral {
+    public init() {
+    }
+    
+    public init(nilLiteral: ()) {
+    }
+    
+    public static let null = Null()
+}
+
+extension Null {
+    var meta:MetaValueProtocol? {
+        return nil
+    }
+}
+
+extension Null : Equatable {
+}
+
+public func ==<Null>(a:Null, b:Null) -> Bool {
+    return true
+}*/
+
+extension Null {
+    var meta:MetaValueProtocol? {
+        return nil
+    }
+}
+
+public func ==(column:Column, value:Null) -> Predicate {
+    return .comparison(op: .eq, a: MetaValue<Any>.column(column), b: value.meta)
+}
+
+public func ==(value:Null, column:Column) -> Predicate {
+    return .comparison(op: .eq, a: value.meta, b: MetaValue<Any>.column(column))
+}
+
 public func ==<T : RDBCEquatable>(column:Column, value:T?) -> Predicate {
     return .comparison(op: .eq, a: MetaValue<Any>.column(column), b: value.map {MetaValue.static($0)})
 }
@@ -615,6 +653,14 @@ public func ==<T : RDBCEquatable>(value:T?, column:Column) -> Predicate {
 
 public func ==<T : Equatable>(a:T?, b:T?) -> Predicate {
     return .bool(a == b)
+}
+
+public func !=(column:Column, value:Null) -> Predicate {
+    return .comparison(op: .neq, a: MetaValue<Any>.column(column), b: value.meta)
+}
+
+public func !=(value:Null, column:Column) -> Predicate {
+    return .comparison(op: .neq, a: value.meta, b: MetaValue<Any>.column(column))
 }
 
 public func !=<T : RDBCEquatable>(column:Column, value:T?) -> Predicate {
@@ -822,8 +868,8 @@ let c = ErasedColumn(name: "qwe", in: t)
 let p:Predicate = 1 <= 2 || 2 > c//(c == "b" && "b" != c || c != c && 1 == c) != (c == "a")
 print(p)
 
-//let driver = SQLiteDriver()
-//let connection = try driver.connect(url: "sqlite:///tmp/crlrsdc3.sqlite", params: [:])
+let driver = SQLiteDriver()
+let connection = try driver.connect(url: "sqlite:///tmp/crlrsdc3.sqlite", params: [:])
 
 //
 /*try connection.execute(query: "CREATE TABLE person(id INTEGER PRIMARY KEY AUTOINCREMENT, firstname TEXT, lastname TEXT);", parameters: [], named: [:])
@@ -831,6 +877,7 @@ try connection.execute(query: "INSERT INTO person(firstname, lastname) VALUES(?,
 try connection.execute(query: "INSERT INTO person(firstname, lastname) VALUES(?, ?);", parameters: ["John", "Lennon"], named: [:])
 try connection.execute(query: "INSERT INTO person(firstname, lastname) VALUES(@first, :last);", parameters: [], named: [":last":"McCartney", "@first": "Paul"])
 try connection.execute(query: "INSERT INTO person(firstname, lastname) VALUES(@first, :last);", parameters: [], named: [":last":"Trump", "@first": "Donald"])
+try connection.execute(query: "INSERT INTO person(firstname) VALUES(@first);", parameters: [], named: ["@first": "Sky"])
 
 try connection.execute(query: "CREATE TABLE comment(id INTEGER PRIMARY KEY AUTOINCREMENT, person_id INTEGER, comment TEXT, FOREIGN KEY(person_id) REFERENCES person(id));", parameters: [], named: [:])
 try connection.execute(query: "INSERT INTO comment(person_id, comment) VALUES(?, ?);", parameters: [1, "Awesome"], named: [:])
@@ -880,8 +927,8 @@ person.zip(with: comment, outer: .left) { person, comment in
     [person["firstname"], person["lastname"], comment["comment"]]
 }/*.filter { t1, _ in
     t1["firstname"] == "Daniel" || t1["lastname"] == "McCartney"
-}*/.filter { person, _ in
-    person["id"] > 0
+}*/.filter { person, comment in
+    person["lastname"] == nil
 }/*.filter { person, comment in
     comment["comment"] == "Musician"// || comment["comment"] == "Cool"
 }*/.execute(on: pool).flatMap{$0}.flatMap { results in
