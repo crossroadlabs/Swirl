@@ -69,13 +69,17 @@ public class SwirlManager {
     }
     
     fileprivate func driver(url:String, params: [String: String]) throws -> SwirlDriver {
-        let driver = try _rdbc.driver(url: url, params: params).0
+        let driver = try _rdbc.driver(url: url, params: params)
         guard let dialect = _dialects[driver.proto] else {
             throw SwirlError.noDialect
         }
         
         return try SwirlDriver(driver: driver, dialect: dialect)
     }
+}
+
+public protocol Dialect {
+    var proto:String {get}
 }
 
 public class Swirl {
@@ -99,7 +103,7 @@ public class Swirl {
 public extension SwirlManager {
     public func swirl(url:String, params:[String: String] = [:]) throws -> Swirl {
         let dialect = try driver(url: url, params: params).dialect
-        let pool = try _rdbc.pool(url: url, params: params)
+        let pool = _rdbc.pool(url: url, params: params)
         return try Swirl(pool: pool, dialect: dialect)
     }
 }

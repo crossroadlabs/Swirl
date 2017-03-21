@@ -19,14 +19,6 @@ import Boilerplate
 import ExecutionContext
 import Future
 
-public protocol DialectRich {
-    var dialect:Dialect {get}
-}
-
-public protocol Dialect {
-    var proto:String {get}
-}
-
 public protocol ConnectionFactory {
     func connect(url:String, params:Dictionary<String, String>) -> Future<Connection>
 }
@@ -79,57 +71,29 @@ public class ConnectionPool : Connection {
     }
 }
 
-class DialectRichConnectionPool : ConnectionPool, DialectRich {
-    let dialect: Dialect
-    
-    init(dialect:Dialect, connectionFactory:@escaping ()->Future<Connection>) {
-        self.dialect = dialect
-        super.init(connectionFactory: connectionFactory)
-    }
-}
-
-extension ConnectionPool {
-    static func pool(dialect:Dialect?, connectionFactory:@escaping ()->Future<Connection>) -> ConnectionPool {
-        return dialect.map { dialect in
-            DialectRichConnectionPool(dialect: dialect, connectionFactory: connectionFactory)
-        } ?? ConnectionPool(connectionFactory: connectionFactory)
-    }
-}
-
 public class RDBC : ConnectionFactory, PoolFactory {
-    private var _drivers = [String:(Driver, Dialect?)]()
+    private var _drivers = [String:Driver]()
     private let _contextFactory:()->ExecutionContextProtocol
     
     public init() {
         _contextFactory = {ExecutionContext(kind: .serial)}
     }
     
-    public func register(driver: Driver, dialect: Dialect? = nil) {
-        _drivers[driver.proto] = (driver, dialect)
+    public func register(driver: Driver) {
+        _drivers[driver.proto] = driver
     }
     
-    private func async(driver: SyncDriver, dialect:Dialect? = nil) -> (Driver, Dialect?) {
-        let dialect = dialect.or(else: (driver as? DialectRich)?.dialect)
-        let driver = AsyncDriver(driver: driver, contextFactory: _contextFactory)
-        
-        return dialect.map { dialect -> (Driver, Dialect?) in
-            (driver, dialect)
-        } ?? (driver, nil)
+    public func register(driver: SyncDriver) {
+        register(driver: AsyncDriver(driver: driver, contextFactory: _contextFactory))
     }
     
-    public func register(driver: SyncDriver, dialect: Dialect? = nil) {
-        async(driver: driver, dialect: dialect) |> register
-    }
-    
-    public func pool(url:String, params:Dictionary<String, String>) throws -> ConnectionPool {
-        let (_, dialect) = try self.driver(url: url, params: params)
-        
-        return ConnectionPool.pool(dialect: dialect) {
+    public func pool(url:String, params:Dictionary<String, String>) -> ConnectionPool {
+        return ConnectionPool {
             self.connect(url: url, params: params)
         }
     }
     
-    public func driver(url _url: String, params: Dictionary<String, String>) throws -> (Driver, Dialect?) {
+    public func driver(url _url: String, params: Dictionary<String, String>) throws -> Driver {
         guard let url = URL(string: _url) else {
             throw RDBCFrameworkError.invalid(url: _url)
         }
@@ -148,8 +112,7 @@ public class RDBC : ConnectionFactory, PoolFactory {
     public func connect(url: String, params: Dictionary<String, String>) -> Future<Connection> {
         return future(context: immediate) {
             try self.driver(url: url, params: params)
-        }.flatMap { (driver, _) in
-            //TODO: wrap connnection
+        }.flatMap { driver in
             driver.connect(url: url, params: params)
         }
     }

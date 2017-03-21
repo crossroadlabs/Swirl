@@ -88,14 +88,6 @@ public extension Query {
         return dialect.render(dataset: dataset, filter: self.predicate, limit: limit)
     }
     
-    public func execute(on connection: Connection, dialect:Dialect? = nil) -> Future<ResultSet?> {
-        guard let dialect = dialect.or(else: (connection as? DialectRich).map({$0.dialect})) else {
-            return Future(error: RDBCFrameworkError.noDialect)
-        }
-        
-        return connection.execute(sql: self.render(dialect: dialect))
-    }
-    
     public func execute(on swirl:Swirl) -> Future<ResultSet?> {
         return swirl.execute(query: self)
     }
