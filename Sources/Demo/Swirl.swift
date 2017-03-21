@@ -39,6 +39,20 @@ public struct SwirlDriver {
     }
 }
 
+public struct SyncSwirlDriver {
+    public let driver: SyncDriver
+    public let dialect: Dialect
+    
+    public init(driver: SyncDriver, dialect: Dialect) throws {
+        if driver.proto != dialect.proto {
+            throw SwirlError.dialectDoesntMatchDriver
+        }
+        
+        self.driver = driver
+        self.dialect = dialect
+    }
+}
+
 public class SwirlManager {
     fileprivate let _rdbc:RDBC
     private var _dialects = [String:Dialect]()
@@ -49,6 +63,11 @@ public class SwirlManager {
     
     public convenience init() {
         self.init(rdbc: RDBC())
+    }
+    
+    public func register(driver: SyncSwirlDriver) {
+        register(driver: driver.driver)
+        register(dialect: driver.dialect)
     }
     
     public func register(driver: SwirlDriver) {
