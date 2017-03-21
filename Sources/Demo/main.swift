@@ -453,6 +453,8 @@ extension Dialect {
             return "(" + a + " >= " + b + ")"
         case .lte:
             return "(" + a + " <= " + b + ")"
+        case .like:
+            return "(" + a + " LIKE " + b + ")"
         default:
             fatalError("Not implemented")
         }
@@ -679,8 +681,12 @@ public func !=<T : Equatable>(a:T?, b:T?) -> Predicate {
     return .bool(a != b)
 }
 
-public func ~=(column:Column, value:String?) -> Predicate {
-    return .comparison(op: .like, a: MetaValue<Any>.column(column), b: value.map {MetaValue.static($0)})
+public func ~=(a:Column, b:Column) -> Predicate {
+    return .comparison(op: .like, a: MetaValue<Any>.column(a), b: MetaValue<Any>.column(b))
+}
+
+public func ~=(column:Column, value:String) -> Predicate {
+    return .comparison(op: .like, a: MetaValue<Any>.column(column), b: MetaValue.static(value))
 }
 
 public func &&(p1:Predicate, p2:Predicate) -> Predicate {
@@ -928,7 +934,7 @@ person.zip(with: comment, outer: .left) { person, comment in
 }/*.filter { t1, _ in
     t1["firstname"] == "Daniel" || t1["lastname"] == "McCartney"
 }*/.filter { person, comment in
-    person["lastname"] == nil
+    person["lastname"] ~= "%epi%"
 }/*.filter { person, comment in
     comment["comment"] == "Musician"// || comment["comment"] == "Cool"
 }*/.execute(on: pool).flatMap{$0}.flatMap { results in
