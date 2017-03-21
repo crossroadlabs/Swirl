@@ -74,7 +74,7 @@ public extension Query {
             throw RDBCFrameworkError.noDialect
         }
         
-        return dialect.render(dataset: dataset)
+        return dialect.render(dataset: dataset, filter: self.predicate)
     }
     
     public func execute(dialect:Dialect? = nil) -> Future<ResultSet?> {
@@ -391,15 +391,20 @@ extension Dialect {
         return SQL(query: columns, parameters: [])
     }
     
-    func render<DS: Dataset>(dataset:DS) -> SQL {
-        let aliases = toMap(dataset.tables.reversed().enumerated().map { (i, table) in
+    func render<DS: Dataset>(dataset:DS, filter:Predicate) -> SQL {
+        let tables = dataset.tables
+        let aliases = toMap(tables.reversed().enumerated().map { (i, table) in
             (table.name, name(at: i))
         })
         
         let columns = render(columns: dataset, aliases: aliases)
         let source = dataset.render(dialect: self, aliases: aliases)
         
-        let sql = "SELECT " + columns + " FROM " + source + ";"
+        let ssql = "SELECT " + columns + " FROM " + source
+        let fsql = filter.render(dialect: self, aliases: aliases)
+        
+        let sql = ssql + (fsql.map {" WHERE " + $0 + ";"} ?? SQL(query: ";", parameters: []))
+        
         let paramsFixed = sql.parameters.map { param -> Any? in
             param.map { value in
                 switch value {
@@ -575,6 +580,12 @@ public func ~=(column:Column, value:String?) -> Predicate {
 
 public func &&(p1:Predicate, p2:Predicate) -> Predicate {
     switch (p1, p2) {
+    case (.null, .null):
+        return .null
+    case (.null, let p2):
+        return p2
+    case (let p1, .null):
+        return p1
     case (.bool(let p1), .bool(let p2)):
         return p1 && p2
     case (let p1, .bool(let p2)):
@@ -600,6 +611,12 @@ public func &&(p1:Bool, p2:Bool) -> Predicate {
 
 public func ||(p1:Predicate, p2:Predicate) -> Predicate {
     switch (p1, p2) {
+    case (.null, .null):
+        return .null
+    case (.null, let p2):
+        return p2
+    case (let p1, .null):
+        return p1
     case (.bool(let p1), .bool(let p2)):
         return p1 || p2
     case (let p1, .bool(let p2)):
@@ -725,9 +742,9 @@ pool.select(from: "test1").zip(with: pool.select(from: "test2")) { t1, t2 in
     t1["id"] == t2["id"]
 }.map { t1, t2 in
     [t1["firstname"], t2["comment"]]
-}/*.filter { t1, t2 in
-    t1["firstname"] == "Daniel"
-}*/.execute().flatMap{$0}.flatMap { results in
+}.filter { t1, t2 in
+    t1["firstname"] == "Daniel" || t2["comment"] == "Cool"
+}.execute().flatMap{$0}.flatMap { results in
     results.columns.zip(results.all())
 }.onSuccess { (cols, rows) in
     print(cols)
