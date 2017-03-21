@@ -8,6 +8,21 @@ import Future
 
 import RDBC
 
+public enum Limit {
+    case limit(Int)
+    case offset(Int, limit:Int)
+}
+
+extension Limit {
+    init(limit:Int, offset:Int? = nil) {
+        if let offset = offset {
+            self = .offset(offset, limit: limit)
+        } else {
+            self = .limit(limit)
+        }
+    }
+}
+
 //Bound Query
 public protocol Query {
     associatedtype DS : Dataset
@@ -15,6 +30,7 @@ public protocol Query {
     var dataset:DS {get}
     var predicate:Predicate {get}
     var order:Any {get}
+    var limit:Limit? {get}
 }
 
 public protocol Renderable {
@@ -69,7 +85,7 @@ private func name(at index: Int) -> String {
 
 public extension Query {
     private func render(dialect:Dialect) -> SQL {
-        return dialect.render(dataset: dataset, filter: self.predicate)
+        return dialect.render(dataset: dataset, filter: self.predicate, limit: limit)
     }
     
     public func execute(on connection: Connection, dialect:Dialect? = nil) -> Future<ResultSet?> {
@@ -87,11 +103,13 @@ public struct QueryImpl<DS : Dataset> : Query {
     public let dataset:DS
     public let predicate:Predicate
     public let order:Any
+    public let limit:Limit?
     
-    init(dataset:DS, predicate:Predicate, order:Any) {
+    init(dataset:DS, predicate:Predicate, order:Any, limit:Limit?) {
         self.dataset = dataset
         self.predicate = predicate
         self.order = order
+        self.limit = limit
     }
 }
 
@@ -110,14 +128,16 @@ public extension Query where DS : Table {
         let dataset = ErasedTable(name: self.dataset.name, columns: .list(f(self.dataset)))
         return QueryImpl(dataset: dataset,
                          predicate: predicate,
-                         order: order)
+                         order: order,
+                         limit: limit)
     }
     
     public func map(_ f: @autoclosure (DS)->String) -> QueryImpl<ErasedTable> {
         let dataset = ErasedTable(name: self.dataset.name, columns: .list([f(self.dataset)]))
         return QueryImpl(dataset: dataset,
                          predicate: predicate,
-                         order: order)
+                         order: order,
+                         limit: limit)
     }
 }
 
@@ -129,13 +149,15 @@ public extension Query {
         
         return QueryImpl(dataset: ErasedTable(name: from, columns: columns),
                          predicate: nil,
-                         order: "")
+                         order: "",
+                         limit: nil)
     }
     
     public static func table(name: String) -> QueryImpl<ErasedTable> {
         return QueryImpl(dataset: ErasedTable(name: name, columns: .all),
                          predicate: nil,
-                         order: "")
+                         order: "",
+                         limit: nil)
     }
 }
 
@@ -147,7 +169,8 @@ public extension Query where DS : Table {
         
         return QueryImpl(dataset: ErasedTable(name: dataset.name, columns: columns),
                          predicate: predicate,
-                         order: order)
+                         order: order,
+                         limit: nil)
     }
 }
 
@@ -299,19 +322,19 @@ public extension Query {
     public func zip<B : Table, Q : Query>(with query:Q) -> QueryImpl<Join<DS, B>> where Q.DS == B {
         let join:Join<DS, B> = .cross(left: dataset, right: query.dataset)
         //TODO: glue predicated with AND
-        return QueryImpl(dataset: join, predicate: predicate, order: order)
+        return QueryImpl(dataset: join, predicate: predicate, order: order, limit: limit)
     }
     
     public func zip<B : Table, Q : Query>(with query:Q, _ condition: JoinCondition) -> QueryImpl<Join<DS, B>> where Q.DS == B {
         let join:Join<DS, B> = .inner(left: dataset, right: query.dataset, condition: condition)
         //TODO: glue predicated with AND
-        return QueryImpl(dataset: join, predicate: predicate, order: order)
+        return QueryImpl(dataset: join, predicate: predicate, order: order, limit: limit)
     }
     
     public func zip<B : Table, Q : Query>(with query:Q, outer direction: JoinDirection, _ condition: JoinCondition) -> QueryImpl<Join<DS, B>> where Q.DS == B {
         let join:Join<DS, B> = .outer(left: dataset, right: query.dataset, condition: condition, direction: direction)
         //TODO: glue predicated with AND
-        return QueryImpl(dataset: join, predicate: predicate, order: order)
+        return QueryImpl(dataset: join, predicate: predicate, order: order, limit: limit)
     }
 }
 
@@ -328,13 +351,13 @@ public extension Query where DS : Table {
 
 public extension Query where DS : Table {
     public func filter(_ f: (DS)->Predicate) -> QueryImpl<DS> {
-        return QueryImpl(dataset: dataset, predicate: f(dataset) && predicate, order: order)
+        return QueryImpl(dataset: dataset, predicate: f(dataset) && predicate, order: order, limit: limit)
     }
 }
 
 public extension Query where DS : JoinProtocol, DS.Left : Table {
     public func filter(_ f: (DS.Left, DS.Right)->Predicate) -> QueryImpl<DS> {
-        return QueryImpl(dataset: dataset, predicate: (dataset.datasets |> f) && predicate, order: order)
+        return QueryImpl(dataset: dataset, predicate: (dataset.datasets |> f) && predicate, order: order, limit: limit)
     }
 }
 
@@ -361,7 +384,15 @@ public extension Query where DS : JoinProtocol, DS.Left : Table {
         
         return QueryImpl(dataset: join,
                          predicate: predicate,
-                         order: order)
+                         order: order,
+                         limit: limit)
+    }
+}
+
+public extension Query {
+    public func take(_ n:Int, drop:Int? = nil) -> QueryImpl<DS> {
+        let limit = Limit(limit: n, offset: drop)
+        return QueryImpl(dataset: dataset, predicate: predicate, order: order, limit: limit)
     }
 }
 
@@ -397,7 +428,16 @@ extension Dialect {
         return SQL(query: columns, parameters: [])
     }
     
-    func render<DS: Dataset>(dataset:DS, filter:Predicate) -> SQL {
+    func render(limit:Limit) -> SQL {
+        switch limit {
+        case .limit(let limit):
+            return SQL(query: "LIMIT \(limit)", parameters: [])
+        case .offset(let offset, limit: let limit):
+            return SQL(query: "LIMIT \(limit) OFFSET \(offset)", parameters: [])
+        }
+    }
+    
+    func render<DS: Dataset>(dataset:DS, filter:Predicate, limit:Limit?) -> SQL {
         let tables = dataset.tables
         let aliases = toMap(tables.reversed().enumerated().map { (i, table) in
             (table.name, name(at: i))
@@ -406,10 +446,14 @@ extension Dialect {
         let columns = render(columns: dataset, aliases: aliases)
         let source = dataset.render(dialect: self, aliases: aliases)
         
-        let ssql = "SELECT " + columns + " FROM " + source
-        let fsql = filter.render(dialect: self, aliases: aliases)
+        let base = SQL(query: "SELECT", parameters: [])
+        let ssql:SQL? = columns + " FROM " + source
+        let fsql = filter.render(dialect: self, aliases: aliases).map {"WHERE " + $0}
+        let lsql = limit.map(render)
         
-        let sql = ssql + (fsql.map {" WHERE " + $0 + ";"} ?? SQL(query: ";", parameters: []))
+        let sql = [ssql, fsql, lsql].flatMap {$0}.reduce(base) { z, a in
+            z + " " + a
+        }
         
         let paramsFixed = sql.parameters.map { param -> Any? in
             param.map { value in
@@ -937,7 +981,7 @@ person.zip(with: comment, outer: .left) { person, comment in
     person["lastname"] ~= "%epi%"
 }/*.filter { person, comment in
     comment["comment"] == "Musician"// || comment["comment"] == "Cool"
-}*/.execute(on: pool).flatMap{$0}.flatMap { results in
+}*/.take(1, drop: 1).execute(on: pool).flatMap{$0}.flatMap { results in
     results.columns.zip(results.all())
 }.onSuccess { (cols, rows) in
     print(cols)
