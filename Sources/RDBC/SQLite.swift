@@ -269,6 +269,8 @@ internal class SQLiteStatement : Resource<OpaquePointer>, SQLiteObject {
                     
                     let bytes = sqlite3_column_blob(statement, column)
                     return bytes.map {Data(bytes: $0, count: Int(count))}
+                case SQLITE_NULL:
+                    return nil
                 case let type:
                     throw SQLiteError.custom(message: "Column of type \(type) is currently unsupported")
                 }
