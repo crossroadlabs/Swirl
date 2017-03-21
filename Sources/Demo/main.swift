@@ -480,6 +480,17 @@ extension Dialect {
     case .compound(op: let op, let a, let b):
     return dialect.render(compound: op, a, b)*/
     
+    func render(direction:JoinDirection) -> String {
+        switch direction {
+        case .left:
+            return "LEFT"
+        case .right:
+            return "RIGHT"
+        case .full:
+            return "FULL"
+        }
+    }
+    
     func render<J: JoinProtocol>(join:J, aliases: [String: String]) -> SQL {
         switch join.join {
             //CROSS
@@ -492,9 +503,20 @@ extension Dialect {
         case .inner(left: let left, right: let right, condition: .using(let columns)):
             let using = columns.map {"`\($0)`"}.joined(separator: ", ")
             return left.render(dialect: self, aliases: aliases) + " INNER JOIN " + right.render(dialect: self, aliases: aliases) + " USING(\(using))"
+            //INNER with ON
         case .inner(left: let left, right: let right, condition: .on(let predicate)):
             let on = predicate.render(dialect: self, aliases: aliases) ?? render(value: true)
             return left.render(dialect: self, aliases: aliases) + " INNER JOIN " + right.render(dialect: self, aliases: aliases) + " ON " + on
+            //OUTER with USING
+        case .outer(left: let left, right: let right, condition: .using(let columns), direction: let _direction):
+            let direction = render(direction: _direction)
+            let using = columns.map {"`\($0)`"}.joined(separator: ", ")
+            return left.render(dialect: self, aliases: aliases) + " \(direction) OUTER JOIN " + right.render(dialect: self, aliases: aliases) + " USING(\(using))"
+            //OUTER with ON
+        case .outer(left: let left, right: let right, condition: .on(let predicate), direction: let _direction):
+            let direction = render(direction: _direction)
+            let on = predicate.render(dialect: self, aliases: aliases) ?? render(value: true)
+            return left.render(dialect: self, aliases: aliases) + " \(direction) OUTER JOIN " + right.render(dialect: self, aliases: aliases) + " ON " + on
         default:
             fatalError("Not implemented")
         }
@@ -808,6 +830,7 @@ print(p)
 try connection.execute(query: "INSERT INTO person(firstname, lastname) VALUES(?, :last);", parameters: ["Daniel",], named: [":last":"Leping"])
 try connection.execute(query: "INSERT INTO person(firstname, lastname) VALUES(?, ?);", parameters: ["John", "Lennon"], named: [:])
 try connection.execute(query: "INSERT INTO person(firstname, lastname) VALUES(@first, :last);", parameters: [], named: [":last":"McCartney", "@first": "Paul"])
+try connection.execute(query: "INSERT INTO person(firstname, lastname) VALUES(@first, :last);", parameters: [], named: [":last":"Trump", "@first": "Donald"])
 
 try connection.execute(query: "CREATE TABLE comment(id INTEGER PRIMARY KEY AUTOINCREMENT, person_id INTEGER, comment TEXT, FOREIGN KEY(person_id) REFERENCES person(id));", parameters: [], named: [:])
 try connection.execute(query: "INSERT INTO comment(person_id, comment) VALUES(?, ?);", parameters: [1, "Awesome"], named: [:])
@@ -843,30 +866,31 @@ let pool = try rdbc.pool(url: "sqlite:///tmp/crlrsdc3.sqlite")
 //let t1 = pool.select(from: "test1").map{ $0["firstname"] }
 //let t2 = pool.select(from: "test2").map("lastname")
 
-let t1 = Q.table(name: "person")
-let t2 = Q.table(name: "comment")
+let person = Q.table(name: "person")
+let comment = Q.table(name: "comment")
 
 //pool.select(from: "test1").map {t1 in [t1["firstname"]]}.zip(with: t2, .using(["id"]), type: .left)
 // SELECT a.`id`, a.`name` from `test1` as a;
 
 // SELECT a.`firstname`, b.`comment` from `test1` as a INNER JOIN `test2` as b USING('id') WHERE a.`firstname` == "Daniel";
 
-t1.zip(with: t2, outer: .left) { person, comment in
+person.zip(with: comment, outer: .left) { person, comment in
     person["id"] == comment["person_id"]
 }.map { person, comment in
-    [person["firstname"], person["lastname"]]
+    [person["firstname"], person["lastname"], comment["comment"]]
 }/*.filter { t1, _ in
     t1["firstname"] == "Daniel" || t1["lastname"] == "McCartney"
 }*/.filter { person, _ in
     person["id"] > 0
-}.filter { person, comment in
+}/*.filter { person, comment in
     comment["comment"] == "Musician"// || comment["comment"] == "Cool"
-}.execute(on: pool).flatMap{$0}.flatMap { results in
+}*/.execute(on: pool).flatMap{$0}.flatMap { results in
     results.columns.zip(results.all())
 }.onSuccess { (cols, rows) in
     print(cols)
     for row in rows {
-        print(row.flatMap{$0})
+        print(row)
+        //print(row.flatMap{$0})
     }
 }.onFailure { e in
     print("!!!Error:", e)
