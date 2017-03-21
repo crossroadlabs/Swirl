@@ -24,6 +24,7 @@ public protocol DialectRich {
 }
 
 public protocol Dialect {
+    var proto:String {get}
 }
 
 public protocol ConnectionFactory {
@@ -128,7 +129,7 @@ public class RDBC : ConnectionFactory, PoolFactory {
         }
     }
     
-    private func driver(url _url: String, params: Dictionary<String, String>) throws -> (Driver, Dialect?) {
+    public func driver(url _url: String, params: Dictionary<String, String>) throws -> (Driver, Dialect?) {
         guard let url = URL(string: _url) else {
             throw RDBCFrameworkError.invalid(url: _url)
         }

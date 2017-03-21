@@ -84,7 +84,7 @@ private func name(at index: Int) -> String {
 }
 
 public extension Query {
-    private func render(dialect:Dialect) -> SQL {
+    func render(dialect:Dialect) -> SQL {
         return dialect.render(dataset: dataset, filter: self.predicate, limit: limit)
     }
     
@@ -94,6 +94,10 @@ public extension Query {
         }
         
         return connection.execute(sql: self.render(dialect: dialect))
+    }
+    
+    public func execute(on swirl:Swirl) -> Future<ResultSet?> {
+        return swirl.execute(query: self)
     }
 }
 
@@ -397,6 +401,9 @@ public extension Query {
 }
 
 class SQLiteDialect : Dialect {
+    var proto:String {
+        return "sqlite"
+    }
 }
 
 extension Dialect {
@@ -918,8 +925,8 @@ let c = ErasedColumn(name: "qwe", in: t)
 let p:Predicate = 1 <= 2 || 2 > c//(c == "b" && "b" != c || c != c && 1 == c) != (c == "a")
 print(p)
 
-let driver = SQLiteDriver()
-let connection = try driver.connect(url: "sqlite:///tmp/crlrsdc3.sqlite", params: [:])
+//let driver = SQLiteDriver()
+//let connection = try driver.connect(url: "sqlite:///tmp/crlrsdc3.sqlite", params: [:])
 
 //
 /*try connection.execute(query: "CREATE TABLE person(id INTEGER PRIMARY KEY AUTOINCREMENT, firstname TEXT, lastname TEXT);", parameters: [], named: [:])
@@ -955,10 +962,11 @@ print("OK")*/
 print("aa:", next(name: "a"))
 print(next(name: "b"))
 
-let rdbc = RDBC()
-rdbc.register(driver: SQLiteDriver(), dialect: SQLiteDialect())
+let manager = SwirlManager()
+manager.register(driver: SQLiteDriver())
+manager.register(dialect: SQLiteDialect())
 
-let pool = try rdbc.pool(url: "sqlite:///tmp/crlrsdc3.sqlite")
+let swirl = try manager.swirl(url: "sqlite:///tmp/crlrsdc3.sqlite")
 
 //let t1 = pool.select(from: "test1").map{ $0["firstname"] }
 //let t2 = pool.select(from: "test2").map("lastname")
@@ -973,15 +981,15 @@ let comment = Q.table(name: "comment")
 
 person.zip(with: comment, outer: .left) { person, comment in
     person["id"] == comment["person_id"]
-}.map { person, comment in
-    [person["firstname"], person["lastname"], comment["comment"]]
+}.map { p, c in
+    [p["firstname"], p["lastname"], c["comment"]]
 }/*.filter { t1, _ in
     t1["firstname"] == "Daniel" || t1["lastname"] == "McCartney"
 }*/.filter { person, comment in
     person["lastname"] ~= "%epi%"
 }/*.filter { person, comment in
     comment["comment"] == "Musician"// || comment["comment"] == "Cool"
-}*/.take(1, drop: 1).execute(on: pool).flatMap{$0}.flatMap { results in
+}*/.take(1, drop: 1).execute(on: swirl).flatMap{$0}.flatMap { results in
     results.columns.zip(results.all())
 }.onSuccess { (cols, rows) in
     print(cols)
