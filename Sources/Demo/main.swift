@@ -1,12 +1,23 @@
+//===--- main.swift ------------------------------------------------------===//
+//Copyright (c) 2017 Crossroad Labs s.r.o.
+//
+//Licensed under the Apache License, Version 2.0 (the "License");
+//you may not use this file except in compliance with the License.
+//You may obtain a copy of the License at
+//
+//http://www.apache.org/licenses/LICENSE-2.0
+//
+//Unless required by applicable law or agreed to in writing, software
+//distributed under the License is distributed on an "AS IS" BASIS,
+//WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//See the License for the specific language governing permissions and
+//limitations under the License.
+//===----------------------------------------------------------------------===//
 
-import Foundation
 
 import Boilerplate
-@_exported import enum Boilerplate.Null
 import ExecutionContext
 import Future
-
-import RDBC
 
 public enum Limit {
     case limit(Int)
@@ -59,12 +70,6 @@ public func +(a:String, b:SQL) -> SQL {
     return SQL(query: a + b.query, parameters: b.parameters)
 }
 
-extension Connection {
-    func execute(sql:SQL) -> Future<ResultSet?> {
-        return execute(query: sql.query, parameters: sql.parameters, named: [:])
-    }
-}
-
 private func next(name: String?) -> String {
     guard let name = name else {
         return "a"
@@ -81,16 +86,6 @@ private func name(at index: Int) -> String {
     let char = UnicodeScalar(scalars[scalars.startIndex].value.advanced(by: index))!
     
     return String(describing: char)
-}
-
-public extension Query {
-    func render(dialect:Dialect) -> SQL {
-        return dialect.render(dataset: dataset, filter: self.predicate, limit: limit)
-    }
-    
-    public func execute(on swirl:Swirl) -> Future<ResultSet?> {
-        return swirl.execute(query: self)
-    }
 }
 
 public typealias Q = QueryImpl<ErasedTable>
@@ -956,7 +951,6 @@ print(next(name: "b"))
 
 let manager = SwirlManager()
 manager.register(driver: SQLiteDriver())
-manager.register(dialect: SQLiteDialect())
 
 let swirl = try manager.swirl(url: "sqlite:///tmp/crlrsdc3.sqlite")
 
@@ -981,7 +975,7 @@ person.zip(with: comment, outer: .left) { person, comment in
     person["lastname"] ~= "%epi%"
 }/*.filter { person, comment in
     comment["comment"] == "Musician"// || comment["comment"] == "Cool"
-}*/.take(1, drop: 1).execute(on: swirl).flatMap{$0}.flatMap { results in
+}*/.take(1, drop: 1).execute(in: swirl).flatMap{$0}.flatMap { results in
     results.columns.zip(results.all())
 }.onSuccess { (cols, rows) in
     print(cols)

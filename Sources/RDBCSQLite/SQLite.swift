@@ -17,6 +17,7 @@
 import Foundation
 import Result
 import Boilerplate
+import RDBC
 
 import CSQLite
 

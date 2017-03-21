@@ -6,9 +6,13 @@ let package = Package(
         Target(
             name: "RDBC"
         ),
+	Target(
+	    name: "RDBCSQLite",
+	    dependencies: [.Target(name: "RDBC")]
+	),
         Target(
                 name: "Demo", 
-                dependencies: [.Target(name: "RDBC")]
+                dependencies: [.Target(name: "RDBC"), .Target(name: "RDBCSQLite")]
         )
     ],
     dependencies: [

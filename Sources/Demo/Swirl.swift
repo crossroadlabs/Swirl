@@ -19,13 +19,14 @@ import Boilerplate
 import Future
 
 import RDBC
+import RDBCSQLite
 
 public enum SwirlError : Error {
     case noDialect
     case dialectDoesntMatchDriver
 }
 
-public struct SwirlDriver {
+public class SwirlDriver {
     public let driver: Driver
     public let dialect: Dialect
     
@@ -39,7 +40,7 @@ public struct SwirlDriver {
     }
 }
 
-public struct SyncSwirlDriver {
+public class SyncSwirlDriver {
     public let driver: SyncDriver
     public let dialect: Dialect
     
@@ -124,5 +125,21 @@ public extension SwirlManager {
         let dialect = try driver(url: url, params: params).dialect
         let pool = _rdbc.pool(url: url, params: params)
         return try Swirl(pool: pool, dialect: dialect)
+    }
+}
+
+public extension Query {
+    func render(dialect:Dialect) -> SQL {
+        return dialect.render(dataset: dataset, filter: self.predicate, limit: limit)
+    }
+    
+    public func execute(in swirl:Swirl) -> Future<ResultSet?> {
+        return swirl.execute(query: self)
+    }
+}
+
+public class SQLiteDriver : SyncSwirlDriver {
+    public init() {
+        try! super.init(driver: RDBCSQLite.SQLiteDriver(), dialect: SQLiteDialect())
     }
 }
