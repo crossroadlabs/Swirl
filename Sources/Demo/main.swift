@@ -444,8 +444,14 @@ extension Dialect {
             return "(" + a + " != " + b + ")"
         case .eq:
             return "(" + a + " == " + b + ")"
-        case .neq:
-            return "(" + a + " != " + b + ")"
+        case .gt:
+            return "(" + a + " > " + b + ")"
+        case .lt:
+            return "(" + a + " < " + b + ")"
+        case .gte:
+            return "(" + a + " >= " + b + ")"
+        case .lte:
+            return "(" + a + " <= " + b + ")"
         default:
             fatalError("Not implemented")
         }
@@ -515,6 +521,11 @@ public enum BinaryOp {
     case eq
     case neq
     case like
+    
+    case gt
+    case lt
+    case gte
+    case lte
 }
 
 public indirect enum Predicate {
@@ -547,7 +558,28 @@ extension Predicate {
     }
 }
 
-public func ==<T>(column:Column, value:T?) -> Predicate {
+public protocol RDBCEquatable : Equatable {
+}
+
+public protocol RDBCComparable : RDBCEquatable, Comparable {
+}
+
+extension Bool : RDBCEquatable {
+}
+
+extension String : RDBCEquatable {
+}
+
+extension Int : RDBCComparable {
+}
+
+extension Double : RDBCComparable {
+}
+
+extension Float : RDBCComparable {
+}
+
+public func ==<T : RDBCEquatable>(column:Column, value:T?) -> Predicate {
     return .comparison(op: .eq, a: MetaValue<Any>.column(column), b: value.map {MetaValue.static($0)})
 }
 
@@ -555,7 +587,7 @@ public func ==(column1:Column, column2:Column) -> Predicate {
     return .comparison(op: .eq, a: MetaValue<Any>.column(column1), b: MetaValue<Any>.column(column2))
 }
 
-public func ==<T>(value:T?, column:Column) -> Predicate {
+public func ==<T : RDBCEquatable>(value:T?, column:Column) -> Predicate {
     return .comparison(op: .eq, a: value.map {MetaValue.static($0)}, b: MetaValue<Any>.column(column))
 }
 
@@ -563,7 +595,7 @@ public func ==<T : Equatable>(a:T?, b:T?) -> Predicate {
     return .bool(a == b)
 }
 
-public func !=<T>(column:Column, value:T?) -> Predicate {
+public func !=<T : RDBCEquatable>(column:Column, value:T?) -> Predicate {
     return .comparison(op: .neq, a: MetaValue<Any>.column(column), b: value.map {MetaValue.static($0)})
 }
 
@@ -571,7 +603,7 @@ public func !=(column1:Column, column2:Column) -> Predicate {
     return .comparison(op: .neq, a: MetaValue<Any>.column(column1), b: MetaValue<Any>.column(column2))
 }
 
-public func !=<T>(value:T?, column:Column) -> Predicate {
+public func !=<T : RDBCEquatable>(value:T?, column:Column) -> Predicate {
     return .comparison(op: .neq, a: value.map {MetaValue.static($0)}, b: MetaValue<Any>.column(column))
 }
 
@@ -580,7 +612,7 @@ public func !=<T : Equatable>(a:T?, b:T?) -> Predicate {
 }
 
 public func ~=(column:Column, value:String?) -> Predicate {
-    return .comparison(op: .neq, a: MetaValue<Any>.column(column), b: value.map {MetaValue.static($0)})
+    return .comparison(op: .like, a: MetaValue<Any>.column(column), b: value.map {MetaValue.static($0)})
 }
 
 public func &&(p1:Predicate, p2:Predicate) -> Predicate {
@@ -670,6 +702,70 @@ public func !=(p1:Bool, p2:Bool) -> Predicate {
     return .bool(p1 != p2)
 }
 
+public func ><T : RDBCComparable>(column:Column, value:T) -> Predicate {
+    return .comparison(op: .gt, a: MetaValue<Any>.column(column), b: MetaValue.static(value))
+}
+
+public func >(column1:Column, column2:Column) -> Predicate {
+    return .comparison(op: .gt, a: MetaValue<Any>.column(column1), b: MetaValue<Any>.column(column2))
+}
+
+public func ><T : RDBCComparable>(value:T, column:Column) -> Predicate {
+    return .comparison(op: .gt, a: MetaValue.static(value), b: MetaValue<Any>.column(column))
+}
+
+public func ><T : Comparable>(a:T, b:T) -> Predicate {
+    return .bool(a > b)
+}
+
+public func <<T : RDBCComparable>(column:Column, value:T) -> Predicate {
+    return .comparison(op: .lt, a: MetaValue<Any>.column(column), b: MetaValue.static(value))
+}
+
+public func <(column1:Column, column2:Column) -> Predicate {
+    return .comparison(op: .lt, a: MetaValue<Any>.column(column1), b: MetaValue<Any>.column(column2))
+}
+
+public func <<T : RDBCComparable>(value:T, column:Column) -> Predicate {
+    return .comparison(op: .lt, a: MetaValue.static(value), b: MetaValue<Any>.column(column))
+}
+
+public func <<T : Comparable>(a:T, b:T) -> Predicate {
+    return .bool(a < b)
+}
+
+public func >=<T : RDBCComparable>(column:Column, value:T) -> Predicate {
+    return .comparison(op: .gte, a: MetaValue<Any>.column(column), b: MetaValue.static(value))
+}
+
+public func >=(column1:Column, column2:Column) -> Predicate {
+    return .comparison(op: .gte, a: MetaValue<Any>.column(column1), b: MetaValue<Any>.column(column2))
+}
+
+public func >=<T : RDBCComparable>(value:T, column:Column) -> Predicate {
+    return .comparison(op: .gte, a: MetaValue.static(value), b: MetaValue<Any>.column(column))
+}
+
+public func >=<T : Comparable>(a:T, b:T) -> Predicate {
+    return .bool(a >= b)
+}
+
+public func <=<T : RDBCComparable>(column:Column, value:T) -> Predicate {
+    return .comparison(op: .lte, a: MetaValue<Any>.column(column), b: MetaValue.static(value))
+}
+
+public func <=(column1:Column, column2:Column) -> Predicate {
+    return .comparison(op: .lte, a: MetaValue<Any>.column(column1), b: MetaValue<Any>.column(column2))
+}
+
+public func <=<T : RDBCComparable>(value:T, column:Column) -> Predicate {
+    return .comparison(op: .lte, a: MetaValue.static(value), b: MetaValue<Any>.column(column))
+}
+
+public func <=<T : Comparable>(a:T, b:T) -> Predicate {
+    return .bool(a <= b)
+}
+
 extension Predicate {
     func render(dialect:Dialect, aliases:[String: String]) -> SQL? {
         switch self {
@@ -701,7 +797,7 @@ public extension MetaValue {
 let t = ErasedTable(name: "lala")
 let c = ErasedColumn(name: "qwe", in: t)
 
-let p:Predicate = 1 == 2 || 2 == c//(c == "b" && "b" != c || c != c && 1 == c) != (c == "a")
+let p:Predicate = 1 <= 2 || 2 > c//(c == "b" && "b" != c || c != c && 1 == c) != (c == "a")
 print(p)
 
 /*let driver = SQLiteDriver()
@@ -747,8 +843,10 @@ t1.zip(with: t2) { t1, t2 in
     t1["id"] == t2["id"]
 }.map { t1, t2 in
     [t1["firstname"], t2["comment"]]
-}.filter { t1, _ in
+}/*.filter { t1, _ in
     t1["firstname"] == "Daniel" || t1["lastname"] == "McCartney"
+}*/.filter { t1, _ in
+    t1["id"] > 1
 }.filter { t1, t2 in
     t1["lastname"] == "Leping" || t2["comment"] == "Cool"
 }.execute(on: pool).flatMap{$0}.flatMap { results in
