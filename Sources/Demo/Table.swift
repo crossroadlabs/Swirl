@@ -18,8 +18,6 @@ import Boilerplate
 
 public protocol Table : Named, Dataset, ErasedRep {
     var columns:Columns {get}
-    
-    init(name:String, columns:Columns)
 }
 
 public extension Table {
@@ -61,6 +59,31 @@ public struct ErasedTable : Table, QueryLike, Rep {
     
     public func filter(_ f: (Ret)->Predicate) -> QueryImpl<DS, Ret> {
         return QueryImpl(dataset: self, ret: self, predicate: f(self))
+    }
+}
+
+public class Table2<A, B> : Table, QueryLike, Rep {
+    public typealias DS = Table2
+    public typealias Ret = Tuple2Rep<TypedColumn<A>, TypedColumn<B>>
+    public typealias Value = Ret.Value
+    
+    public let name:String
+    public let columns: Columns
+    
+    public let all:Ret
+    
+    public init(name:String, all:Ret) {
+        self.name = name
+        columns = .list(all.stripe.flatMap { $0 as? Column }.map {$0.name})
+        self.all = all
+    }
+    
+    public func map<BRet : Rep>(_ f:(Ret)->BRet) -> QueryImpl<DS, BRet> {
+        return QueryImpl(dataset: self, ret: f(all))
+    }
+    
+    public func filter(_ f: (Ret)->Predicate) -> QueryImpl<DS, Ret> {
+        return QueryImpl(dataset: self, ret: all, predicate: f(all))
     }
 }
 

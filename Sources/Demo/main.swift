@@ -487,6 +487,8 @@ extension Dialect {
             return "(" + a + " IS NOT " + b + ")"
         case .eq:
             return "(" + a + " IS " + b + ")"
+        case .neq:
+            return "(" + a + " IS NOT " + b + ")"
         case .gt:
             return "(" + a + " > " + b + ")"
         case .lt:
@@ -708,7 +710,42 @@ let swirl = try manager.swirl(url: "sqlite:///tmp/crlrsdc3.sqlite")
 let person = Q.table(name: "person")
 let comment = Q.table(name: "comment")
 
-person.map { p in
+class Comments : Table2<Int, String> {
+    let id: TypedColumn<Int>
+    let comment: TypedColumn<String>
+    
+    init() {
+        id = TypedColumn(name: "id", in: ErasedTable(name: "comment"))
+        comment = TypedColumn(name: "comment", in: ErasedTable(name: "comment"))
+        super.init(name: "comment", all: Tuple2Rep(id, comment))
+    }
+}
+let comments = Comments()
+
+comments.filter { id, comment in
+    comment != nil
+}.result.execute(in: swirl).onSuccess { comments in
+    //every row is a tuple, types are preserved
+    for (id, comment) in comments {
+        print("\(comment) identified with ID: \(id)")
+    }
+}
+
+/*person.map { p in
+    //
+    (p.c("id", type: Int.self), p["firstname"].bind(String.self))
+}.filter { id, name in
+    //everything is typesafe, e.g. id == “some” gives compile time error
+    id > 1 && name ~= "%oh%"
+}.take(2)
+.result.execute(in: swirl).onSuccess { rows in
+    //every row is a tuple, types are preserved
+    for (id, name) in rows {
+        print("\(name) identified with ID: \(id)")
+    }
+}*/
+
+/*person.map { p in
     (p.c("id", type: Int.self), p["firstname"].bind(String.self))
 }.filter { id, name in
     id > 1 && name ~= "%oh%"
@@ -718,7 +755,7 @@ person.map { p in
     }
 }.onFailure { e in
     print("!!!Error:", e)
-}
+}*/
 
 /*person.zip(with: comment) { p, c in
     p["id"] == c["person_id"]
