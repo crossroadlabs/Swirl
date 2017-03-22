@@ -40,7 +40,7 @@ public protocol ValueRepProtocol : Rep {
 }
 
 public struct ValueRep<T> : ValueRepProtocol {
-    public typealias Value = T
+    public typealias Value = T?
     
     public let value: Value
     
@@ -508,8 +508,8 @@ extension Dialect {
         } ?? self.render(value: Optional<Any>.none)
     }
     
-    func render(comparison op: BinaryOp, _ a:MetaValueProtocol?, _ b:MetaValueProtocol?, aliases: [String: String]) -> SQL {
-        return render(op: op, render(metaValue: a, aliases: aliases), render(metaValue: b, aliases: aliases))
+    func render(comparison op: BinaryOp, _ a:ErasedRep, _ b:ErasedRep, aliases: [String: String]) -> SQL {
+        return render(op: op, render(rep: a, aliases: aliases), render(rep: b, aliases: aliases))
     }
     
     func render(compound op: BinaryOp, _ a:Predicate, _ b:Predicate, aliases: [String: String]) -> SQL? {
@@ -616,8 +616,8 @@ public extension MetaValue {
 let t = ErasedTable(name: "lala")
 let c = ErasedColumn(name: "qwe", in: t)
 
-let p:Predicate = 1 <= 2 || 2 > c//(c == "b" && "b" != c || c != c && 1 == c) != (c == "a")
-print(p)
+//let p:Predicate = 1 <= 2 || 2 > c//(c == "b" && "b" != c || c != c && 1 == c) != (c == "a")
+//print(p)
 
 //let driver = SQLiteDriver()
 //let connection = try driver.connect(url: "sqlite:///tmp/crlrsdc3.sqlite", params: [:])
@@ -672,13 +672,11 @@ let comment = Q.table(name: "comment")
 
 // SELECT a.`firstname`, b.`comment` from `test1` as a INNER JOIN `test2` as b USING('id') WHERE a.`firstname` == "Daniel";
 
-person.zip(with: comment) { p, c in
-    p["id"] == c["person_id"]
-}.map { p, c in
-    (p["firstname"], p["lastname"], c["comment"])
-}.filter { first, last, comment in
-    first == "Daniel"
-}.execute(in: swirl).flatMap{$0}.flatMap { results in
+person.map { p in
+    (p.c("id", type: Int.self), p["firstname"].bind(String.self))
+}.filter { id, name in
+    id < 3 && name ~= "%oh%"
+}.take(2).execute(in: swirl).flatMap{$0}.flatMap { results in
     results.columns.zip(results.all())
 }.onSuccess { (cols, rows) in
     print(cols)
@@ -689,6 +687,30 @@ person.zip(with: comment) { p, c in
 }.onFailure { e in
     print("!!!Error:", e)
 }
+
+/*person.zip(with: comment) { p, c in
+    p["id"] == c["person_id"]
+}.map { p, c in
+    (p["id"], p["firstname"], p["lastname"], c["comment"])
+}.filter { id, _, _, _ in
+    id > 2
+}.map { id, first, last, comment in
+    (first, last, comment)
+}.filter { id, first, last, comment in
+    comment == "Musician"
+}.execute(in: swirl).flatMap{$0}.flatMap { results in
+    results.columns.zip(results.all())
+}.onSuccess { (cols, rows) in
+    print(cols)
+    for row in rows {
+        //print(row)
+        print(row.flatMap{$0})
+    }
+}.onFailure { e in
+    print("!!!Error:", e)
+}*/
+
+
 //person.zip(with: comment, outer: .left) { person, comment in
 //    person["id"] == comment["person_id"]
 //}.map { p, c in

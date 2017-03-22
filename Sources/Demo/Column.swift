@@ -37,6 +37,24 @@ public struct ErasedColumn : Column, Rep {
     }
 }
 
+public extension ErasedColumn {
+    public func bind<T>(_ type:T.Type) -> TypedColumn<T> {
+        return TypedColumn(name: name, in: table)
+    }
+}
+
+public struct TypedColumn<T> : Column, Rep {
+    public typealias Value = T
+    
+    public let name:String
+    public let table:Table
+    
+    init(name: String, in table: Table) {
+        self.name = name
+        self.table = table
+    }
+}
+
 public extension Column {
     public func render(dialect: Dialect, aliases: [String : String]) -> SQL {
         let table = aliases[self.table.name] ?? self.table.name

@@ -51,24 +51,36 @@ extension Float : RDBCComparable {
 }
 
 ////////////////////////////////////////////////////////EQUALITY////////////////////////////////////////////////////////
-public func ==(column:Column, value:Null) -> Predicate {
-    return .comparison(op: .eq, a: MetaValue<Any>.column(column), b: value.meta)
+public func ==<T, RA : Rep>(a:RA, b:Null) -> Predicate where RA.Value == T {
+    return .comparison(op: .eq, a: a, b: ValueRep(value: b))
 }
 
-public func ==(value:Null, column:Column) -> Predicate {
-    return .comparison(op: .eq, a: value.meta, b: MetaValue<Any>.column(column))
+public func ==<T, RB : Rep>(a:Null, b:RB) -> Predicate where RB.Value == T {
+    return .comparison(op: .eq, a: ValueRep(value: b), b: b)
 }
 
-public func ==<T : RDBCEquatable>(column:Column, value:T?) -> Predicate {
-    return .comparison(op: .eq, a: MetaValue<Any>.column(column), b: value.map {MetaValue.static($0)})
+public func ==<RA : Rep, T : RDBCEquatable>(a:RA, b:T?) -> Predicate where RA.Value == T {
+    return .comparison(op: .eq, a: a, b: ValueRep(value: b))
 }
 
-public func ==(column1:Column, column2:Column) -> Predicate {
-    return .comparison(op: .eq, a: MetaValue<Any>.column(column1), b: MetaValue<Any>.column(column2))
+public func ==<T : RDBCEquatable>(a:ErasedColumn, b:T?) -> Predicate {
+    return .comparison(op: .eq, a: a, b: ValueRep(value: b))
 }
 
-public func ==<T : RDBCEquatable>(value:T?, column:Column) -> Predicate {
-    return .comparison(op: .eq, a: value.map {MetaValue.static($0)}, b: MetaValue<Any>.column(column))
+public func ==<T : RDBCEquatable, RA : Rep, RB : Rep>(a: RA, b: RB) -> Predicate where RA.Value == T, RB.Value == T {
+    return .comparison(op: .eq, a: a, b: b)
+}
+
+public func ==(a:ErasedColumn, b: ErasedColumn) -> Predicate {
+    return .comparison(op: .eq, a: a, b: b)
+}
+
+public func ==<T : RDBCEquatable, RB : Rep>(a:T?, b:RB) -> Predicate where RB.Value == T {
+    return .comparison(op: .eq, a: ValueRep(value: a), b: b)
+}
+
+public func ==<T : RDBCEquatable>(a: T?, b: ErasedColumn) -> Predicate {
+    return .comparison(op: .eq, a: ValueRep(value: a), b: b)
 }
 
 public func ==<T : Equatable>(a:T?, b:T?) -> Predicate {
@@ -76,24 +88,36 @@ public func ==<T : Equatable>(a:T?, b:T?) -> Predicate {
 }
 
 ////////////////////////////////////////////////////////INEQUALITY////////////////////////////////////////////////////////
-public func !=(column:Column, value:Null) -> Predicate {
-    return .comparison(op: .neq, a: MetaValue<Any>.column(column), b: value.meta)
+public func !=<T, RA : Rep>(a:RA, b:Null) -> Predicate where RA.Value == T {
+    return .comparison(op: .neq, a: a, b: ValueRep(value: b))
 }
 
-public func !=(value:Null, column:Column) -> Predicate {
-    return .comparison(op: .neq, a: value.meta, b: MetaValue<Any>.column(column))
+public func !=<T, RB : Rep>(a:Null, b:RB) -> Predicate where RB.Value == T {
+    return .comparison(op: .neq, a: ValueRep(value: b), b: b)
 }
 
-public func !=<T : RDBCEquatable>(column:Column, value:T?) -> Predicate {
-    return .comparison(op: .neq, a: MetaValue<Any>.column(column), b: value.map {MetaValue.static($0)})
+public func !=<RA : Rep, T : RDBCEquatable>(a:RA, b:T?) -> Predicate where RA.Value == T {
+    return .comparison(op: .neq, a: a, b: ValueRep(value: b))
 }
 
-public func !=(column1:Column, column2:Column) -> Predicate {
-    return .comparison(op: .neq, a: MetaValue<Any>.column(column1), b: MetaValue<Any>.column(column2))
+public func !=<T : RDBCEquatable>(a:ErasedColumn, b:T?) -> Predicate {
+    return .comparison(op: .neq, a: a, b: ValueRep(value: b))
 }
 
-public func !=<T : RDBCEquatable>(value:T?, column:Column) -> Predicate {
-    return .comparison(op: .neq, a: value.map {MetaValue.static($0)}, b: MetaValue<Any>.column(column))
+public func !=<T : RDBCEquatable, RA : Rep, RB : Rep>(a: RA, b: RB) -> Predicate where RA.Value == T, RB.Value == T {
+    return .comparison(op: .neq, a: a, b: b)
+}
+
+public func !=(a:ErasedColumn, b: ErasedColumn) -> Predicate {
+    return .comparison(op: .neq, a: a, b: b)
+}
+
+public func !=<T : RDBCEquatable, RB : Rep>(a:T?, b:RB) -> Predicate where RB.Value == T {
+    return .comparison(op: .neq, a: ValueRep(value: a), b: b)
+}
+
+public func !=<T : RDBCEquatable>(a: T?, b: ErasedColumn) -> Predicate {
+    return .comparison(op: .neq, a: ValueRep(value: a), b: b)
 }
 
 public func !=<T : Equatable>(a:T?, b:T?) -> Predicate {
@@ -101,12 +125,20 @@ public func !=<T : Equatable>(a:T?, b:T?) -> Predicate {
 }
 
 ////////////////////////////////////////////////////////LIKE////////////////////////////////////////////////////////
-public func ~=(a:Column, b:Column) -> Predicate {
-    return .comparison(op: .like, a: MetaValue<Any>.column(a), b: MetaValue<Any>.column(b))
+public func ~=(a:ErasedColumn, b:ErasedColumn) -> Predicate {
+    return .comparison(op: .like, a: a, b: b)
 }
 
-public func ~=(column:Column, value:String) -> Predicate {
-    return .comparison(op: .like, a: MetaValue<Any>.column(column), b: MetaValue.static(value))
+public func ~=<RA : Rep, RB : Rep>(a: RA, b: RB) -> Predicate where RA.Value == String, RB.Value == String {
+    return .comparison(op: .like, a: a, b: b)
+}
+
+public func ~=(a: ErasedColumn, b: String) -> Predicate {
+    return .comparison(op: .like, a: a, b: ValueRep(value: b))
+}
+
+public func ~=<RA : Rep>(a: RA, b: String) -> Predicate where RA.Value == String {
+    return .comparison(op: .like, a: a, b: ValueRep(value: b))
 }
 
 ////////////////////////////////////////////////////////AND////////////////////////////////////////////////////////
@@ -200,16 +232,28 @@ public func !=(p1:Bool, p2:Bool) -> Predicate {
 }
 
 ////////////////////////////////////////////////////////GT////////////////////////////////////////////////////////
-public func ><T : RDBCComparable>(column:Column, value:T) -> Predicate {
-    return .comparison(op: .gt, a: MetaValue<Any>.column(column), b: MetaValue.static(value))
+public func ><T : RDBCComparable>(a:ErasedColumn, b: T) -> Predicate {
+    return .comparison(op: .gt, a: a, b: ValueRep(value: b))
 }
 
-public func >(column1:Column, column2:Column) -> Predicate {
-    return .comparison(op: .gt, a: MetaValue<Any>.column(column1), b: MetaValue<Any>.column(column2))
+public func ><T : RDBCComparable, RA : Rep>(a: RA, b: T) -> Predicate where RA.Value == T {
+    return .comparison(op: .gt, a: a, b: ValueRep(value: b))
 }
 
-public func ><T : RDBCComparable>(value:T, column:Column) -> Predicate {
-    return .comparison(op: .gt, a: MetaValue.static(value), b: MetaValue<Any>.column(column))
+public func >(a:ErasedColumn, b: ErasedColumn) -> Predicate {
+    return .comparison(op: .gt, a: a, b: b)
+}
+
+public func ><T : RDBCComparable, RA : Rep, RB : Rep>(a: RA, b: RB) -> Predicate where RA.Value == T, RB.Value == T {
+    return .comparison(op: .gt, a: a, b: b)
+}
+
+public func ><T : RDBCComparable>(a:T, b: ErasedColumn) -> Predicate {
+    return .comparison(op: .gt, a: ValueRep(value: a), b: b)
+}
+
+public func ><T : RDBCComparable, RB : Rep>(a: T, b: RB) -> Predicate where RB.Value == T {
+    return .comparison(op: .gt, a: ValueRep(value: a), b: b)
 }
 
 public func ><T : Comparable>(a:T, b:T) -> Predicate {
@@ -217,16 +261,29 @@ public func ><T : Comparable>(a:T, b:T) -> Predicate {
 }
 
 ////////////////////////////////////////////////////////LT////////////////////////////////////////////////////////
-public func <<T : RDBCComparable>(column:Column, value:T) -> Predicate {
-    return .comparison(op: .lt, a: MetaValue<Any>.column(column), b: MetaValue.static(value))
+
+public func <<T : RDBCComparable>(a:ErasedColumn, b: T) -> Predicate {
+    return .comparison(op: .lt, a: a, b: ValueRep(value: b))
 }
 
-public func <(column1:Column, column2:Column) -> Predicate {
-    return .comparison(op: .lt, a: MetaValue<Any>.column(column1), b: MetaValue<Any>.column(column2))
+public func <<T : RDBCComparable, RA : Rep>(a: RA, b: T) -> Predicate where RA.Value == T {
+    return .comparison(op: .lt, a: a, b: ValueRep(value: b))
 }
 
-public func <<T : RDBCComparable>(value:T, column:Column) -> Predicate {
-    return .comparison(op: .lt, a: MetaValue.static(value), b: MetaValue<Any>.column(column))
+public func <(a:ErasedColumn, b: ErasedColumn) -> Predicate {
+    return .comparison(op: .lt, a: a, b: b)
+}
+
+public func <<T : RDBCComparable, RA : Rep, RB : Rep>(a: RA, b: RB) -> Predicate where RA.Value == T, RB.Value == T {
+    return .comparison(op: .lt, a: a, b: b)
+}
+
+public func <<T : RDBCComparable>(a:T, b: ErasedColumn) -> Predicate {
+    return .comparison(op: .lt, a: ValueRep(value: a), b: b)
+}
+
+public func <<T : RDBCComparable, RB : Rep>(a: T, b: RB) -> Predicate where RB.Value == T {
+    return .comparison(op: .lt, a: ValueRep(value: a), b: b)
 }
 
 public func <<T : Comparable>(a:T, b:T) -> Predicate {
@@ -234,16 +291,28 @@ public func <<T : Comparable>(a:T, b:T) -> Predicate {
 }
 
 ////////////////////////////////////////////////////////GTE////////////////////////////////////////////////////////
-public func >=<T : RDBCComparable>(column:Column, value:T) -> Predicate {
-    return .comparison(op: .gte, a: MetaValue<Any>.column(column), b: MetaValue.static(value))
+public func >=<T : RDBCComparable>(a:ErasedColumn, b: T) -> Predicate {
+    return .comparison(op: .gte, a: a, b: ValueRep(value: b))
 }
 
-public func >=(column1:Column, column2:Column) -> Predicate {
-    return .comparison(op: .gte, a: MetaValue<Any>.column(column1), b: MetaValue<Any>.column(column2))
+public func >=<T : RDBCComparable, RA : Rep>(a: RA, b: T) -> Predicate where RA.Value == T {
+    return .comparison(op: .gte, a: a, b: ValueRep(value: b))
 }
 
-public func >=<T : RDBCComparable>(value:T, column:Column) -> Predicate {
-    return .comparison(op: .gte, a: MetaValue.static(value), b: MetaValue<Any>.column(column))
+public func >=(a:ErasedColumn, b: ErasedColumn) -> Predicate {
+    return .comparison(op: .gte, a: a, b: b)
+}
+
+public func >=<T : RDBCComparable, RA : Rep, RB : Rep>(a: RA, b: RB) -> Predicate where RA.Value == T, RB.Value == T {
+    return .comparison(op: .gte, a: a, b: b)
+}
+
+public func >=<T : RDBCComparable>(a:T, b: ErasedColumn) -> Predicate {
+    return .comparison(op: .gte, a: ValueRep(value: a), b: b)
+}
+
+public func >=<T : RDBCComparable, RB : Rep>(a: T, b: RB) -> Predicate where RB.Value == T {
+    return .comparison(op: .gte, a: ValueRep(value: a), b: b)
 }
 
 public func >=<T : Comparable>(a:T, b:T) -> Predicate {
@@ -251,16 +320,29 @@ public func >=<T : Comparable>(a:T, b:T) -> Predicate {
 }
 
 ////////////////////////////////////////////////////////LTE////////////////////////////////////////////////////////
-public func <=<T : RDBCComparable>(column:Column, value:T) -> Predicate {
-    return .comparison(op: .lte, a: MetaValue<Any>.column(column), b: MetaValue.static(value))
+
+public func <=<T : RDBCComparable>(a:ErasedColumn, b: T) -> Predicate {
+    return .comparison(op: .lte, a: a, b: ValueRep(value: b))
 }
 
-public func <=(column1:Column, column2:Column) -> Predicate {
-    return .comparison(op: .lte, a: MetaValue<Any>.column(column1), b: MetaValue<Any>.column(column2))
+public func <=<T : RDBCComparable, RA : Rep>(a: RA, b: T) -> Predicate where RA.Value == T {
+    return .comparison(op: .lte, a: a, b: ValueRep(value: b))
 }
 
-public func <=<T : RDBCComparable>(value:T, column:Column) -> Predicate {
-    return .comparison(op: .lte, a: MetaValue.static(value), b: MetaValue<Any>.column(column))
+public func <=(a:ErasedColumn, b: ErasedColumn) -> Predicate {
+    return .comparison(op: .lte, a: a, b: b)
+}
+
+public func <=<T : RDBCComparable, RA : Rep, RB : Rep>(a: RA, b: RB) -> Predicate where RA.Value == T, RB.Value == T {
+    return .comparison(op: .lte, a: a, b: b)
+}
+
+public func <=<T : RDBCComparable>(a:T, b: ErasedColumn) -> Predicate {
+    return .comparison(op: .lte, a: ValueRep(value: a), b: b)
+}
+
+public func <=<T : RDBCComparable, RB : Rep>(a: T, b: RB) -> Predicate where RB.Value == T {
+    return .comparison(op: .lte, a: ValueRep(value: a), b: b)
 }
 
 public func <=<T : Comparable>(a:T, b:T) -> Predicate {

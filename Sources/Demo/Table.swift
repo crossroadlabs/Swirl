@@ -51,6 +51,10 @@ public struct ErasedTable : Table, QueryLike, Rep {
         return ErasedColumn(name: column, in: self)
     }
     
+    public func c<T>(_ column:String, type:T.Type = T.self) -> TypedColumn<T> {
+        return self[column].bind(type)
+    }
+    
     public func map<BRet : Rep>(_ f:(Ret)->BRet) -> QueryImpl<DS, BRet> {
         return QueryImpl(dataset: self, ret: f(self))
     }

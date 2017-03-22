@@ -18,7 +18,7 @@ public indirect enum Predicate {
     case null
     case bool(Bool)
     case compound(op:BinaryOp, Predicate, Predicate)
-    case comparison(op:BinaryOp, a:MetaValueProtocol?, b:MetaValueProtocol?)
+    case comparison(op:BinaryOp, a:ErasedRep, b:ErasedRep)
 }
 
 extension Predicate : ExpressibleByBooleanLiteral {
