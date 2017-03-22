@@ -54,6 +54,10 @@ public struct ErasedTable : Table, QueryLike, Rep {
     public func map<BRet : Rep>(_ f:(Ret)->BRet) -> QueryImpl<DS, BRet> {
         return QueryImpl(dataset: self, ret: f(self))
     }
+    
+    public func filter(_ f: (Ret)->Predicate) -> QueryImpl<DS, Ret> {
+        return QueryImpl(dataset: self, ret: self, predicate: f(self))
+    }
 }
 
 extension ErasedTable {

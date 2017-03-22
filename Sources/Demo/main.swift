@@ -59,57 +59,12 @@ public extension ValueRep {
     }
 }
 
-public protocol Tuple2RepProtocol : ValueRepProtocol {
-    associatedtype A : Rep
-    associatedtype B : Rep
-    associatedtype Value = (A, B)
-}
-
-public extension Tuple2RepProtocol {
-    var tuple:(A, B) {
-        return value as! (A, B)
-    }
-}
-
-public extension Tuple2RepProtocol {
-    public var stripe: [ErasedRep] {
-        //TODO: Arrayify
-        let t = tuple
-        return [t.0, t.1]
-    }
-}
-
-public struct Tuple2Rep<AI : Rep, BI : Rep> : Tuple2RepProtocol {
-    public typealias A = AI
-    public typealias B = BI
-    public typealias Value = (A, B)
-    
-    public let value:Value
-    
-    public init(value:Value) {
-        self.value = value
-    }
-    
-    public init(_ a:A, _ b:B) {
-        self.init(value: (a, b))
-    }
-    
-    public func render(dialect: Dialect, aliases: [String : String]) -> SQL {
-        fatalError("Can not render tuple rep")
-    }
-}
-
 public protocol QueryLike {
     associatedtype DS : Dataset
     associatedtype Ret : Rep
     
     func map<BRet : Rep>(_ f:(Ret)->BRet) -> QueryImpl<DS, BRet>
-}
-
-public extension QueryLike where Self : Table {
-    /*public func map<B>(_ f:(DS)->B) -> QueryImpl<DS, B> {
-        
-    }*/
+    func filter(_ f:(Ret)->Predicate) -> QueryImpl<DS, Ret>
 }
 
 //Bound Query
@@ -170,9 +125,36 @@ public struct QueryImpl<DSI : Dataset, RetI : Rep> : Query {
     }
 }
 
-public extension QueryLike where Ret : Tuple2RepProtocol {
-    func map<BRet : Rep>(_ f:(Ret.A, Ret.B)->BRet) -> QueryImpl<DS, BRet> {
+public extension QueryLike {
+    /*public func map<A: Rep, B : Rep>(_ f:(Ret)->(A, B)) -> QueryImpl<DS, Tuple2Rep<A, B>> {
+        return self.map { ret in
+            let t = f(ret)
+            return Tuple2Rep<A, B>(value: t)
+        }
+    }*/
+    
+    /*public func map<A: Rep, B : Rep, C : Rep>(_ f:(Ret.A, Ret.B)->(A, B, C)) -> QueryImpl<DS, Tuple3Rep<A, B, C>> {
         return map { ret in
+            Tuple3Rep(value: ret.tuple |> f)
+        }
+    }
+    
+    public func map<A: Rep, B : Rep, C : Rep, D : Rep>(_ f:(Ret.A, Ret.B)->(A, B, C, D)) -> QueryImpl<DS, Tuple4Rep<A, B, C, D>> {
+        return map { ret in
+            Tuple4Rep(value: ret.tuple |> f)
+        }
+    }*/
+}
+
+public extension QueryLike where Ret : Tuple2RepProtocol {
+    public func map<BRet : Rep>(_ f:(Ret.A, Ret.B)->BRet) -> QueryImpl<DS, BRet> {
+        return map { ret in
+            ret.tuple |> f
+        }
+    }
+    
+    public func filter(_ f:(Ret.A, Ret.B)->Predicate) -> QueryImpl<DS, Ret> {
+        return filter { ret in
             ret.tuple |> f
         }
     }
@@ -180,6 +162,82 @@ public extension QueryLike where Ret : Tuple2RepProtocol {
     public func map<A: Rep, B : Rep>(_ f:(Ret.A, Ret.B)->(A, B)) -> QueryImpl<DS, Tuple2Rep<A, B>> {
         return map { ret in
             Tuple2Rep(value: ret.tuple |> f)
+        }
+    }
+    
+    public func map<A: Rep, B : Rep, C : Rep>(_ f:(Ret.A, Ret.B)->(A, B, C)) -> QueryImpl<DS, Tuple3Rep<A, B, C>> {
+        return map { ret in
+            Tuple3Rep(value: ret.tuple |> f)
+        }
+    }
+    
+    public func map<A: Rep, B : Rep, C : Rep, D : Rep>(_ f:(Ret.A, Ret.B)->(A, B, C, D)) -> QueryImpl<DS, Tuple4Rep<A, B, C, D>> {
+        return map { ret in
+            Tuple4Rep(value: ret.tuple |> f)
+        }
+    }
+}
+
+public extension QueryLike where Ret : Tuple3RepProtocol {
+    public func map<BRet : Rep>(_ f:(Ret.A, Ret.B, Ret.C)->BRet) -> QueryImpl<DS, BRet> {
+        return map { ret in
+            ret.tuple |> f
+        }
+    }
+    
+    public func filter(_ f:(Ret.A, Ret.B, Ret.C)->Predicate) -> QueryImpl<DS, Ret> {
+        return filter { ret in
+            ret.tuple |> f
+        }
+    }
+    
+    public func map<A: Rep, B : Rep>(_ f:(Ret.A, Ret.B, Ret.C)->(A, B)) -> QueryImpl<DS, Tuple2Rep<A, B>> {
+        return map { ret in
+            Tuple2Rep(value: ret.tuple |> f)
+        }
+    }
+    
+    public func map<A: Rep, B : Rep, C : Rep>(_ f:(Ret.A, Ret.B, Ret.C)->(A, B, C)) -> QueryImpl<DS, Tuple3Rep<A, B, C>> {
+        return map { ret in
+            Tuple3Rep(value: ret.tuple |> f)
+        }
+    }
+    
+    public func map<A: Rep, B : Rep, C : Rep, D : Rep>(_ f:(Ret.A, Ret.B, Ret.C)->(A, B, C, D)) -> QueryImpl<DS, Tuple4Rep<A, B, C, D>> {
+        return map { ret in
+            Tuple4Rep(value: ret.tuple |> f)
+        }
+    }
+}
+
+public extension QueryLike where Ret : Tuple4RepProtocol {
+    public func map<BRet : Rep>(_ f:(Ret.A, Ret.B, Ret.C, Ret.D)->BRet) -> QueryImpl<DS, BRet> {
+        return map { ret in
+            ret.tuple |> f
+        }
+    }
+    
+    public func filter(_ f:(Ret.A, Ret.B, Ret.C, Ret.D)->Predicate) -> QueryImpl<DS, Ret> {
+        return filter { ret in
+            ret.tuple |> f
+        }
+    }
+    
+    public func map<A: Rep, B : Rep>(_ f:(Ret.A, Ret.B, Ret.C, Ret.D)->(A, B)) -> QueryImpl<DS, Tuple2Rep<A, B>> {
+        return map { ret in
+            Tuple2Rep(value: ret.tuple |> f)
+        }
+    }
+    
+    public func map<A: Rep, B : Rep, C : Rep>(_ f:(Ret.A, Ret.B, Ret.C, Ret.D)->(A, B, C)) -> QueryImpl<DS, Tuple3Rep<A, B, C>> {
+        return map { ret in
+            Tuple3Rep(value: ret.tuple |> f)
+        }
+    }
+    
+    public func map<A: Rep, B : Rep, C : Rep, D : Rep>(_ f:(Ret.A, Ret.B, Ret.C, Ret.D)->(A, B, C, D)) -> QueryImpl<DS, Tuple4Rep<A, B, C, D>> {
+        return map { ret in
+            Tuple4Rep(value: ret.tuple |> f)
         }
     }
 }
@@ -617,9 +675,9 @@ let comment = Q.table(name: "comment")
 person.zip(with: comment) { p, c in
     p["id"] == c["person_id"]
 }.map { p, c in
-    (p["id"], p["firstname"])
-}.filter { id in
-    id.tuple.0 == 1
+    (p["firstname"], p["lastname"], c["comment"])
+}.filter { first, last, comment in
+    first == "Daniel"
 }.execute(in: swirl).flatMap{$0}.flatMap { results in
     results.columns.zip(results.all())
 }.onSuccess { (cols, rows) in
