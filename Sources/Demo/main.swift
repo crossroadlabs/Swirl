@@ -613,6 +613,42 @@ public extension MetaValue {
     }
 }
 
+public class SwirlOperation<Ret> {
+    public typealias SwirlOp = (Swirl) -> Future<Ret>
+    
+    private let _op:SwirlOp
+    
+    public init(_ f:@escaping SwirlOp) {
+        _op = f
+    }
+    
+    public func execute(in swirl:Swirl) -> Future<Ret> {
+        return _op(swirl)
+    }
+}
+
+
+//Shity fast implementation
+public extension Query where Ret : Tuple2RepProtocol {
+    public var result:SwirlOperation<[(Ret.A.Value, Ret.B.Value)]> {
+        return SwirlOperation { swirl in
+            self.execute(in: swirl).flatMap{$0}.flatMap { results in
+                //results.columns.zip(results.all())
+                results.all()
+            }.map { /*(cols,*/ rows/*)*/ in
+                rows.map(Tuple2Rep<Ret.A, Ret.B>.parse)
+            }.recover { (e:FutureError) in
+                switch e {
+                case .mappedNil:
+                    return []
+                default:
+                    throw e
+                }
+            }
+        }
+    }
+}
+
 let t = ErasedTable(name: "lala")
 let c = ErasedColumn(name: "qwe", in: t)
 
@@ -664,25 +700,21 @@ let swirl = try manager.swirl(url: "sqlite:///tmp/crlrsdc3.sqlite")
 //let t1 = pool.select(from: "test1").map{ $0["firstname"] }
 //let t2 = pool.select(from: "test2").map("lastname")
 
-let person = Q.table(name: "person")
-let comment = Q.table(name: "comment")
-
 //pool.select(from: "test1").map {t1 in [t1["firstname"]]}.zip(with: t2, .using(["id"]), type: .left)
 // SELECT a.`id`, a.`name` from `test1` as a;
 
 // SELECT a.`firstname`, b.`comment` from `test1` as a INNER JOIN `test2` as b USING('id') WHERE a.`firstname` == "Daniel";
 
+let person = Q.table(name: "person")
+let comment = Q.table(name: "comment")
+
 person.map { p in
     (p.c("id", type: Int.self), p["firstname"].bind(String.self))
 }.filter { id, name in
-    id < 3 && name ~= "%oh%"
-}.take(2).execute(in: swirl).flatMap{$0}.flatMap { results in
-    results.columns.zip(results.all())
-}.onSuccess { (cols, rows) in
-    print(cols)
-    for row in rows {
-        //print(row)
-        print(row.flatMap{$0})
+    id > 1 && name ~= "%oh%"
+}.take(2).result.execute(in: swirl).onSuccess { rows in
+    for (id, name) in rows {
+        print("\(name) identified with ID: \(id)")
     }
 }.onFailure { e in
     print("!!!Error:", e)

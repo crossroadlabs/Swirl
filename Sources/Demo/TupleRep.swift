@@ -15,6 +15,9 @@
 //===----------------------------------------------------------------------===//
 
 public protocol TupleRepProtocol : ValueRepProtocol {
+    associatedtype Naked
+    
+    static func parse(array:[Any?]) -> Naked
 }
 
 public extension TupleRepProtocol {
@@ -49,6 +52,7 @@ public struct Tuple2Rep<AI : Rep, BI : Rep> : Tuple2RepProtocol {
     public typealias A = AI
     public typealias B = BI
     public typealias Value = (A, B)
+    public typealias Naked = (A.Value, B.Value)
     
     public let value:Value
     
@@ -58,6 +62,12 @@ public struct Tuple2Rep<AI : Rep, BI : Rep> : Tuple2RepProtocol {
     
     public init(_ a:A, _ b:B) {
         self.init(value: (a, b))
+    }
+}
+
+public extension Tuple2Rep {
+    static func parse(array:[Any?]) -> Naked {
+        return (array[0]! as! A.Value, array[1]! as! B.Value)
     }
 }
 
@@ -89,6 +99,7 @@ public struct Tuple3Rep<AI : Rep, BI : Rep, CI : Rep> : Tuple3RepProtocol {
     public typealias B = BI
     public typealias C = CI
     public typealias Value = (A, B, C)
+    public typealias Naked = (A.Value, B.Value, C.Value)
     
     public let value:Value
     
@@ -98,6 +109,12 @@ public struct Tuple3Rep<AI : Rep, BI : Rep, CI : Rep> : Tuple3RepProtocol {
     
     public init(_ a:A, _ b:B, _ c:C) {
         self.init(value: (a, b, c))
+    }
+}
+
+public extension Tuple3Rep {
+    static func parse(array:[Any?]) -> Naked {
+        return (array[0]! as! A.Value, array[1]! as! B.Value, array[2]! as! C.Value)
     }
 }
 
@@ -131,6 +148,7 @@ public struct Tuple4Rep<AI : Rep, BI : Rep, CI : Rep, DI : Rep> : Tuple4RepProto
     public typealias C = CI
     public typealias D = DI
     public typealias Value = (A, B, C, D)
+    public typealias Naked = (A.Value, B.Value, C.Value, D.Value)
     
     public let value:Value
     
@@ -140,6 +158,12 @@ public struct Tuple4Rep<AI : Rep, BI : Rep, CI : Rep, DI : Rep> : Tuple4RepProto
     
     public init(_ a:A, _ b:B, _ c:C, _ d:D) {
         self.init(value: (a, b, c, d))
+    }
+}
+
+public extension Tuple4Rep {
+    static func parse(array:[Any?]) -> Naked {
+        return (array[0]! as! A.Value, array[1]! as! B.Value, array[2]! as! C.Value, array[3]! as! D.Value)
     }
 }
 
@@ -175,6 +199,7 @@ public struct Tuple5Rep<AI : Rep, BI : Rep, CI : Rep, DI : Rep, EI : Rep> : Tupl
     public typealias D = DI
     public typealias E = EI
     public typealias Value = (A, B, C, D, E)
+    public typealias Naked = (A.Value, B.Value, C.Value, D.Value, E.Value)
     
     public let value:Value
     
@@ -184,6 +209,12 @@ public struct Tuple5Rep<AI : Rep, BI : Rep, CI : Rep, DI : Rep, EI : Rep> : Tupl
     
     public init(_ a:A, _ b:B, _ c:C, _ d:D, _ e:E) {
         self.init(value: (a, b, c, d, e))
+    }
+}
+
+public extension Tuple5Rep {
+    static func parse(array:[Any?]) -> Naked {
+        return (array[0]! as! A.Value, array[1]! as! B.Value, array[2]! as! C.Value, array[3]! as! D.Value, array[4]! as! E.Value)
     }
 }
 
@@ -221,6 +252,7 @@ public struct Tuple6Rep<AI : Rep, BI : Rep, CI : Rep, DI : Rep, EI : Rep, FI : R
     public typealias E = EI
     public typealias F = FI
     public typealias Value = (A, B, C, D, E, F)
+    public typealias Naked = (A.Value, B.Value, C.Value, D.Value, E.Value, F.Value)
     
     public let value:Value
     
@@ -230,5 +262,16 @@ public struct Tuple6Rep<AI : Rep, BI : Rep, CI : Rep, DI : Rep, EI : Rep, FI : R
     
     public init(_ a:A, _ b:B, _ c:C, _ d:D, _ e:E, _ f:F) {
         self.init(value: (a, b, c, d, e, f))
+    }
+}
+
+public extension Tuple6Rep {
+    static func parse(array:[Any?]) -> Naked {
+        return (array[0]! as! A.Value,
+                array[1]! as! B.Value,
+                array[2]! as! C.Value,
+                array[3]! as! D.Value,
+                array[4]! as! E.Value,
+                array[5]! as! F.Value)
     }
 }
