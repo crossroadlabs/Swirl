@@ -130,7 +130,7 @@ public extension SwirlManager {
 
 public extension Query {
     func render(dialect:Dialect) -> SQL {
-        return dialect.render(dataset: dataset, filter: self.predicate, limit: limit)
+        return dialect.render(dataset: dataset, ret: ret, filter: self.predicate, limit: limit)
     }
     
     public func execute(in swirl:Swirl) -> Future<ResultSet?> {

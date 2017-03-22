@@ -37,3 +37,12 @@ public func +(a:SQL, b:String) -> SQL {
 public func +(a:String, b:SQL) -> SQL {
     return SQL(query: a + b.query, parameters: b.parameters)
 }
+
+public extension Sequence where Iterator.Element == SQL {
+    public func joined(separator: String = "") -> SQL {
+        let strings = self.map {$0.query}
+        let query = strings.joined(separator: separator)
+        let params = self.flatMap {$0.parameters}
+        return SQL(query: query, parameters: params)
+    }
+}

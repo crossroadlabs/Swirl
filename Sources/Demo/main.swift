@@ -19,14 +19,112 @@ import Boilerplate
 import ExecutionContext
 import Future
 
-//Bound Query
-public protocol Query {
-    associatedtype DS : Dataset
+public protocol ErasedRep {
+    var stripe: [ErasedRep] {get}
     
+    func render(dialect:Dialect, aliases:[String: String]) -> SQL
+}
+
+public extension ErasedRep {
+    public var stripe: [ErasedRep] {
+        return [self]
+    }
+}
+
+public protocol Rep : ErasedRep {
+    associatedtype Value
+}
+
+public protocol ValueRepProtocol : Rep {
+    var value:Value {get}
+}
+
+public struct ValueRep<T> : ValueRepProtocol {
+    public typealias Value = T
+    
+    public let value: Value
+    
+    public init(value:Value) {
+        self.value = value
+    }
+    
+    public init<VR : ValueRepProtocol>(rep:VR) where VR.Value == Value {
+        self.init(value: rep.value)
+    }
+}
+
+public extension ValueRep {
+    public func render(dialect: Dialect, aliases: [String : String]) -> SQL {
+        return dialect.render(value: value)
+    }
+}
+
+public protocol Tuple2RepProtocol : ValueRepProtocol {
+    associatedtype A : Rep
+    associatedtype B : Rep
+    associatedtype Value = (A, B)
+}
+
+public extension Tuple2RepProtocol {
+    var tuple:(A, B) {
+        return value as! (A, B)
+    }
+}
+
+public extension Tuple2RepProtocol {
+    public var stripe: [ErasedRep] {
+        //TODO: Arrayify
+        let t = tuple
+        return [t.0, t.1]
+    }
+}
+
+public struct Tuple2Rep<AI : Rep, BI : Rep> : Tuple2RepProtocol {
+    public typealias A = AI
+    public typealias B = BI
+    public typealias Value = (A, B)
+    
+    public let value:Value
+    
+    public init(value:Value) {
+        self.value = value
+    }
+    
+    public init(_ a:A, _ b:B) {
+        self.init(value: (a, b))
+    }
+    
+    public func render(dialect: Dialect, aliases: [String : String]) -> SQL {
+        fatalError("Can not render tuple rep")
+    }
+}
+
+public protocol QueryLike {
+    associatedtype DS : Dataset
+    associatedtype Ret : Rep
+    
+    func map<BRet : Rep>(_ f:(Ret)->BRet) -> QueryImpl<DS, BRet>
+}
+
+public extension QueryLike where Self : Table {
+    /*public func map<B>(_ f:(DS)->B) -> QueryImpl<DS, B> {
+        
+    }*/
+}
+
+//Bound Query
+public protocol Query : QueryLike {
     var dataset:DS {get}
+    var ret:Ret {get}
     var predicate:Predicate {get}
     var order:Any {get}
     var limit:Limit? {get}
+}
+
+public extension Query {
+    public func map<BRet : Rep>(_ f:(Ret)->BRet) -> QueryImpl<DS, BRet> {
+        return QueryImpl(dataset: dataset, ret: f(ret), predicate: predicate, order: order, limit: limit)
+    }
 }
 
 public protocol Renderable {
@@ -51,128 +149,158 @@ private func name(at index: Int) -> String {
     return String(describing: char)
 }
 
-public typealias Q = QueryImpl<ErasedTable>
+public typealias Q = QueryImpl<ErasedTable, ErasedTable>
 
-public struct QueryImpl<DS : Dataset> : Query {
+public struct QueryImpl<DSI : Dataset, RetI : Rep> : Query {
+    public typealias DS = DSI
+    public typealias Ret = RetI
+    
     public let dataset:DS
+    public let ret:Ret
     public let predicate:Predicate
     public let order:Any
     public let limit:Limit?
     
-    init(dataset:DS, predicate:Predicate, order:Any, limit:Limit?) {
+    init(dataset:DS, ret:Ret, predicate:Predicate = nil, order:Any = "", limit:Limit? = nil) {
         self.dataset = dataset
+        self.ret = ret
         self.predicate = predicate
         self.order = order
         self.limit = limit
     }
 }
 
-public extension Query where DS : Table {
-    public func map(_ f: (DS)->Column) -> QueryImpl<ErasedTable> {
-        let names = [f(self.dataset).name]
+public extension QueryLike where Ret : Tuple2RepProtocol {
+    func map<BRet : Rep>(_ f:(Ret.A, Ret.B)->BRet) -> QueryImpl<DS, BRet> {
+        return map { ret in
+            ret.tuple |> f
+        }
+    }
+    
+    public func map<A: Rep, B : Rep>(_ f:(Ret.A, Ret.B)->(A, B)) -> QueryImpl<DS, Tuple2Rep<A, B>> {
+        return map { ret in
+            Tuple2Rep(value: ret.tuple |> f)
+        }
+    }
+}
+
+public extension QueryLike {
+    public func map<A: Rep, B : Rep>(_ f:(Ret)->(A, B)) -> QueryImpl<DS, Tuple2Rep<A, B>> {
+        return map { ret in
+            Tuple2Rep(value: f(ret))
+        }
+    }
+}
+
+public extension Query {
+    /*public func map<Z>(_ f: (Ret.Value)->Z) -> QueryImpl<DS, Z> {
+        return QueryImpl(dataset: dataset, ret: f(ret), predicate: predicate, order: order, limit: limit)
+    }*/
+    
+    /*public func map(_ f: (Ret)->Column) -> QueryImpl<DS, ErasedTable> {
+        let names = [f(self.ret).name]
         return map(names)
     }
     
-    public func map(_ f: (DS)->[Column]) -> QueryImpl<ErasedTable> {
-        let names = f(self.dataset).map{$0.name}
+    public func map(_ f: (Ret)->[Column]) -> QueryImpl<DS, ErasedTable> {
+        let names = f(self.ret).map{$0.name}
         return map(names)
     }
     
-    public func map(_ f: @autoclosure (DS)->[String]) -> QueryImpl<ErasedTable> {
-        let dataset = ErasedTable(name: self.dataset.name, columns: .list(f(self.dataset)))
+    public func map(_ f: @autoclosure (Ret)->[String]) -> QueryImpl<DS, ErasedTable> {
+        let ret = ErasedTable(name: self.dataset.name, columns: .list(f(self.ret)))
         return QueryImpl(dataset: dataset,
+                         ret: ret,
                          predicate: predicate,
                          order: order,
                          limit: limit)
     }
     
-    public func map(_ f: @autoclosure (DS)->String) -> QueryImpl<ErasedTable> {
-        let dataset = ErasedTable(name: self.dataset.name, columns: .list([f(self.dataset)]))
+    public func map(_ f: @autoclosure (Ret)->String) -> QueryImpl<DS, ErasedTable> {
+        let ret = ErasedTable(name: self.dataset.name, columns: .list([f(self.ret)]))
         return QueryImpl(dataset: dataset,
+                         ret: ret,
                          predicate: predicate,
                          order: order,
                          limit: limit)
-    }
+    }*/
 }
 
 public extension Query {
-    public static func select(_ columns: [String]? = nil, from: String) -> QueryImpl<ErasedTable> {
+    public static func select(_ columns: [String]? = nil, from: String) -> QueryImpl<ErasedTable, ErasedTable> {
         let columns:Columns = columns.map { seq in
             .list(seq)
         }.getOr(else: .all)
         
-        return QueryImpl(dataset: ErasedTable(name: from, columns: columns),
+        let table = ErasedTable(name: from, columns: columns)
+        
+        return QueryImpl(dataset: table,
+                         ret: table,
                          predicate: nil,
                          order: "",
                          limit: nil)
     }
     
-    public static func table(name: String) -> QueryImpl<ErasedTable> {
-        return QueryImpl(dataset: ErasedTable(name: name, columns: .all),
-                         predicate: nil,
-                         order: "",
-                         limit: nil)
+    public static func table(name: String) -> ErasedTable {
+        return ErasedTable(name: name, columns: .all)
     }
 }
 
 public extension Query where DS : Table {
-    public func select(_ columns: [String]? = nil) -> QueryImpl<ErasedTable> {
+    public func select(_ columns: [String]? = nil) -> QueryImpl<DS, ErasedTable> {
         let columns:Columns = columns.map { seq in
             .list(seq)
         }.getOr(else: .all)
         
-        return QueryImpl(dataset: ErasedTable(name: dataset.name, columns: columns),
+        return QueryImpl(dataset: dataset,
+                         ret: ErasedTable(name: dataset.name, columns: columns),
                          predicate: predicate,
                          order: order,
                          limit: nil)
     }
 }
 
-public extension Query {
+public extension Table where Self : Rep {
     //cross join
-    public func zip<B : Table, Q : Query>(with query:Q) -> QueryImpl<Join<DS, B>> where Q.DS == B {
-        let join:Join<DS, B> = .cross(left: dataset, right: query.dataset)
+    public func zip<B : Table>(with table: B) -> QueryImpl<Join<Self, B>, Tuple2Rep<Self, B>> where B : Rep {
+        let join:Join<Self, B> = .cross(left: self, right: table)
         //TODO: glue predicated with AND
-        return QueryImpl(dataset: join, predicate: predicate, order: order, limit: limit)
+        return QueryImpl(dataset: join, ret: Tuple2Rep(self, table))
     }
     
-    public func zip<B : Table, Q : Query>(with query:Q, _ condition: JoinCondition) -> QueryImpl<Join<DS, B>> where Q.DS == B {
-        let join:Join<DS, B> = .inner(left: dataset, right: query.dataset, condition: condition)
+    //inner join
+    public func zip<B : Table>(with table: B, _ condition: JoinCondition) -> QueryImpl<Join<Self, B>, Tuple2Rep<Self, B>> where B : Rep {
+        let join:Join<Self, B> = .inner(left: self, right: table, condition: condition)
         //TODO: glue predicated with AND
-        return QueryImpl(dataset: join, predicate: predicate, order: order, limit: limit)
+        return QueryImpl(dataset: join, ret: Tuple2Rep(self, table))
     }
     
-    public func zip<B : Table, Q : Query>(with query:Q, outer direction: JoinDirection, _ condition: JoinCondition) -> QueryImpl<Join<DS, B>> where Q.DS == B {
-        let join:Join<DS, B> = .outer(left: dataset, right: query.dataset, condition: condition, direction: direction)
+    //outer join
+    public func zip<B : Table>(with table: B, outer direction: JoinDirection, _ condition: JoinCondition) -> QueryImpl<Join<Self, B>, Tuple2Rep<Self, B>> where B : Rep {
+        let join:Join<Self, B> = .outer(left: self, right: table, condition: condition, direction: direction)
         //TODO: glue predicated with AND
-        return QueryImpl(dataset: join, predicate: predicate, order: order, limit: limit)
+        return QueryImpl(dataset: join, ret: Tuple2Rep(self, table))
     }
 }
 
 //TODO: implement for Joins
-public extension Query where DS : Table {
-    public func zip<B : Table, Q : Query>(with query:Q, _ f: (DS, B) -> Predicate) -> QueryImpl<Join<DS, B>> where Q.DS == B {
-        return zip(with: query, .on(f(self.dataset, query.dataset)))
+public extension Table where Self : Rep {
+    public func zip<B : Table>(with table:B, _ f: (Self, B) -> Predicate) -> QueryImpl<Join<Self, B>, Tuple2Rep<Self, B>> where B : Rep {
+        return zip(with: table, .on(f(self, table)))
     }
     
-    public func zip<B : Table, Q : Query>(with query:Q, outer direction: JoinDirection, _ f: (DS, B) -> Predicate) -> QueryImpl<Join<DS, B>> where Q.DS == B {
-        return zip(with: query, outer: direction, .on(f(self.dataset, query.dataset)))
+    public func zip<B : Table>(with table:B, outer direction: JoinDirection, _ f: (Self, B) -> Predicate) -> QueryImpl<Join<Self, B>, Tuple2Rep<Self, B>> where B : Rep {
+        return zip(with: table, outer: direction, .on(f(self, table)))
     }
 }
 
-public extension Query where DS : Table {
-    public func filter(_ f: (DS)->Predicate) -> QueryImpl<DS> {
-        return QueryImpl(dataset: dataset, predicate: f(dataset) && predicate, order: order, limit: limit)
+public extension Query {
+    public func filter(_ f: (Ret)->Predicate) -> QueryImpl<DS, Ret> {
+        return QueryImpl(dataset: dataset, ret: ret, predicate: f(ret) && predicate, order: order, limit: limit)
     }
 }
 
-public extension Query where DS : JoinProtocol, DS.Left : Table {
-    public func filter(_ f: (DS.Left, DS.Right)->Predicate) -> QueryImpl<DS> {
-        return QueryImpl(dataset: dataset, predicate: (dataset.datasets |> f) && predicate, order: order, limit: limit)
-    }
-}
-
-public extension Query where DS : JoinProtocol, DS.Left : Table {
+/*public extension Query where DS : JoinProtocol, DS.Left : Table {
     public func map(_ f: (DS.Left, DS.Right)->[Column]) -> QueryImpl<Join<DS.Left, DS.Right>> {
         var colmap = [String: [String]]()
         
@@ -198,12 +326,12 @@ public extension Query where DS : JoinProtocol, DS.Left : Table {
                          order: order,
                          limit: limit)
     }
-}
+}*/
 
 public extension Query {
-    public func take(_ n:Int, drop:Int? = nil) -> QueryImpl<DS> {
+    public func take(_ n:Int, drop:Int? = nil) -> QueryImpl<DS, Ret> {
         let limit = Limit(limit: n, offset: drop)
-        return QueryImpl(dataset: dataset, predicate: predicate, order: order, limit: limit)
+        return QueryImpl(dataset: dataset, ret: ret, predicate: predicate, order: order, limit: limit)
     }
 }
 
@@ -218,12 +346,12 @@ extension Dialect {
         return "?"
     }
     
-    func render(column: String, table: String, escape:Bool) -> String {
+    func render(column: String, table: String, escape:Bool) -> SQL {
         let col = escape ? "`\(column)`" : column
-        return "\(table).\(col)"
+        return SQL(query: "\(table).\(col)", parameters: [])
     }
     
-    func render(columns: Columns, table: String) -> [String] {
+    func render(columns: Columns, table: String) -> [SQL] {
         switch columns {
         case .all:
             return [render(column: "*", table: table, escape: false)]
@@ -232,14 +360,12 @@ extension Dialect {
         }
     }
     
-    func render(columns dataset:Dataset, aliases:[String: String]) -> SQL {
-        let columns = dataset.tables.flatMap { table in
-            aliases[table.name].map { alias in
-                (table.columns, alias)
-            }
-        }.flatMap(render).joined(separator: ", ")
-        
-        return SQL(query: columns, parameters: [])
+    func render(rep:ErasedRep, aliases:[String: String]) -> SQL {
+        return rep.render(dialect: self, aliases: aliases)
+    }
+    
+    func render<Ret : Rep>(columns ret:Ret, aliases:[String: String]) -> SQL {
+        return ret.stripe.map {($0, aliases)}.map(render).joined(separator: ", ")
     }
     
     func render(limit:Limit) -> SQL {
@@ -251,13 +377,13 @@ extension Dialect {
         }
     }
     
-    func render<DS: Dataset>(dataset:DS, filter:Predicate, limit:Limit?) -> SQL {
+    func render<DS: Dataset, Ret : Rep>(dataset:DS, ret: Ret, filter:Predicate, limit:Limit?) -> SQL {
         let tables = dataset.tables
         let aliases = toMap(tables.reversed().enumerated().map { (i, table) in
             (table.name, name(at: i))
         })
         
-        let columns = render(columns: dataset, aliases: aliases)
+        let columns = render(columns: ret, aliases: aliases)
         let source = dataset.render(dialect: self, aliases: aliases)
         
         let base = SQL(query: "SELECT", parameters: [])
@@ -422,8 +548,7 @@ public extension MetaValue {
         switch self {
         case .column(let column):
             let alias = aliases[column.table.name]!
-            let column = dialect.render(column: column.name, table: alias, escape: true)
-            return SQL(query: column, parameters: [])
+            return dialect.render(column: column.name, table: alias, escape: true)
         case .static(let value):
             return dialect.render(value: value)
         }
@@ -489,26 +614,43 @@ let comment = Q.table(name: "comment")
 
 // SELECT a.`firstname`, b.`comment` from `test1` as a INNER JOIN `test2` as b USING('id') WHERE a.`firstname` == "Daniel";
 
-person.zip(with: comment, outer: .left) { person, comment in
-    person["id"] == comment["person_id"]
+person.zip(with: comment) { p, c in
+    p["id"] == c["person_id"]
 }.map { p, c in
-    [p["firstname"], p["lastname"], c["comment"]]
-}/*.filter { t1, _ in
-    t1["firstname"] == "Daniel" || t1["lastname"] == "McCartney"
-}*/.filter { person, comment in
-    person["lastname"] ~= "%epi%"
-}/*.filter { person, comment in
-    comment["comment"] == "Musician"// || comment["comment"] == "Cool"
-}*/.take(1, drop: 1).execute(in: swirl).flatMap{$0}.flatMap { results in
+    (p["id"], p["firstname"])
+}.filter { id in
+    id.tuple.0 == 1
+}.execute(in: swirl).flatMap{$0}.flatMap { results in
     results.columns.zip(results.all())
 }.onSuccess { (cols, rows) in
     print(cols)
     for row in rows {
-        print(row)
-        //print(row.flatMap{$0})
+        //print(row)
+        print(row.flatMap{$0})
     }
 }.onFailure { e in
     print("!!!Error:", e)
 }
+//person.zip(with: comment, outer: .left) { person, comment in
+//    person["id"] == comment["person_id"]
+//}.map { p, c in
+//    [p["firstname"], p["lastname"], c["comment"]]
+//}/*.filter { t1, _ in
+//    t1["firstname"] == "Daniel" || t1["lastname"] == "McCartney"
+//}*/.filter { person, comment in
+//    person["lastname"] ~= "%epi%"
+//}/*.filter { person, comment in
+//    comment["comment"] == "Musician"// || comment["comment"] == "Cool"
+//}*/.take(1, drop: 1).execute(in: swirl).flatMap{$0}.flatMap { results in
+//    results.columns.zip(results.all())
+//}.onSuccess { (cols, rows) in
+//    print(cols)
+//    for row in rows {
+//        print(row)
+//        //print(row.flatMap{$0})
+//    }
+//}.onFailure { e in
+//    print("!!!Error:", e)
+//}
 
 ExecutionContext.mainProc()

@@ -16,12 +16,10 @@
 
 import Boilerplate
 
-public protocol Table : Named, Dataset {
+public protocol Table : Named, Dataset, ErasedRep {
     var columns:Columns {get}
     
     init(name:String, columns:Columns)
-    
-    subscript(_ column:String) -> Column {get}
 }
 
 public extension Table {
@@ -36,7 +34,11 @@ public extension Table {
     }
 }
 
-public struct ErasedTable : Table {
+public struct ErasedTable : Table, QueryLike, Rep {
+    public typealias DS = ErasedTable
+    public typealias Ret = ErasedTable
+    public typealias Value = ErasedTable
+    
     public let name:String
     public let columns:Columns
     
@@ -45,8 +47,12 @@ public struct ErasedTable : Table {
         self.columns = columns
     }
     
-    public subscript(_ column:String) -> Column {
+    public subscript(_ column:String) -> ErasedColumn {
         return ErasedColumn(name: column, in: self)
+    }
+    
+    public func map<BRet : Rep>(_ f:(Ret)->BRet) -> QueryImpl<DS, BRet> {
+        return QueryImpl(dataset: self, ret: f(self))
     }
 }
 

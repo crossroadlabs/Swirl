@@ -21,16 +21,25 @@ public enum Columns {
     case all
 }
 
-public protocol Column : Named {
+public protocol Column : Named, ErasedRep {
     var table:Table {get}
 }
 
-public struct ErasedColumn : Column {
+public struct ErasedColumn : Column, Rep {
+    public typealias Value = Any
+    
     public let name:String
     public let table:Table
     
     init(name: String, in table: Table) {
         self.name = name
         self.table = table
+    }
+}
+
+public extension Column {
+    public func render(dialect: Dialect, aliases: [String : String]) -> SQL {
+        let table = aliases[self.table.name] ?? self.table.name
+        return dialect.render(column: name, table: table, escape: true)
     }
 }
