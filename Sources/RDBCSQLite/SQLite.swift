@@ -255,7 +255,7 @@ internal class SQLiteStatement : Resource<OpaquePointer>, SQLiteObject {
                 //NOTE: do we need a better error checking here???
                 switch sqlite3_column_type(statement, column) {
                 case SQLITE_INTEGER:
-                    return sqlite3_column_int(statement, column)
+                    return Int(sqlite3_column_int(statement, column))
                 case SQLITE_FLOAT:
                     return sqlite3_column_double(statement, column)
                 case SQLITE_TEXT:
