@@ -751,8 +751,8 @@ extension Comment : Entity {
     }
 }
 
-class Comments : TypedTable<Tuple2<Int, String>>, QueryLike {
-//class Comments : TypedTable<Comment>, QueryLike {
+//class Comments : TypedTable<Tuple2<Int, String>>, QueryLike {
+class Comments : TypedTable<Comment>, QueryLike {
     public typealias DS = Comments
     public typealias Ret = Comments
     
@@ -769,7 +769,17 @@ class Comments : TypedTable<Tuple2<Int, String>>, QueryLike {
 }
 let comments = Comments()
 
-comments.map { c in
+/*comments.zip(with: person) { c, p in
+    c.id == p["id"].bind(Int.self)
+}.map { c, p in
+    (p["firstname"].bind(String.self), c.comment)
+}.result.execute(in: swirl).onSuccess { join in
+    for (name, comment) in join {
+        print("\(name) in \(comment)")
+    }
+}*/
+
+/*comments.map { c in
     (c.id, c.comment)
 }.filter { id, _ in
     id < 3 || id > 5
@@ -778,19 +788,19 @@ comments.map { c in
     for (id, comment) in comments {
         print("'\(comment)' identified with ID: \(id)")
     }
-}
+}*/
 
-/*comments.filter { comment in
+comments.filter { comment in
     comment.id < 3 || comment.id > 5
 }.result.execute(in: swirl).onSuccess { comments in
     //every row is a tuple, types are preserved
-//    for comment in comments {
-//        print("'\(comment.comment)' identified with ID: \(comment.id)")
-//    }
-    for (id, comment) in comments {
-        print("'\(comment)' identified with ID: \(id)")
+    for comment in comments {
+        print("'\(comment.comment)' identified with ID: \(comment.id)")
     }
-}*/
+//    for (id, comment) in comments {
+//        print("'\(comment)' identified with ID: \(id)")
+//    }
+}
 
 /*person.map { p in
     //
