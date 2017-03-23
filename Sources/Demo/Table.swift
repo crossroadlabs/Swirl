@@ -82,11 +82,11 @@ public protocol CaseProtocol {
     var tuple:Self.Tuple.Wrapped {get}
 }
 
-public protocol EntityLike : CaseProtocol, ArrayParser {
+public protocol EntityLike : ArrayParser {
     associatedtype Tuple : RepRichTuple
 }
 
-public protocol Entity : EntityLike {
+public protocol Entity : CaseProtocol, EntityLike {
 }
 
 public extension Entity {
@@ -97,28 +97,31 @@ public extension Entity {
     }
 }
 
-public struct TupleEntity<TupleI : RepRichTuple> : EntityLike {
-    public typealias Tuple = TupleI
-    public typealias ArrayParseResult = Tuple.ColumnsRep.Naked
+public protocol TupleEntity : EntityLike {
+}
 
-    public let wrapper: Tuple
-
-    public init(wrapper tuple: Tuple) {
-        wrapper = tuple
-    }
-
+public extension TupleEntity where Self : Demo.RepRichTuple {
+    public typealias ArrayParseResult = Self.ColumnsRep.Naked
     
-    public init(tuple: Tuple.Wrapped) {
-        self.init(wrapper: Tuple(tuple: tuple))
+    public var wrapper: Self {
+        return self
     }
     
-    public var tuple: Tuple.Wrapped {
-        return wrapper.tuple
+    public init(wrapper t: Self) {
+        self.init(tuple: t.tuple)
     }
     
-    public static func parse(array:[Any?]) -> ArrayParseResult {
-        return Tuple.ColumnsRep.parse(array: array)
+    public static func parse(array:[Any?]) -> Self.ColumnsRep.Naked {
+        return Self.ColumnsRep.parse(array: array)
     }
+}
+
+extension Tuple2 : TupleEntity {
+    public typealias Tuple = Tuple2
+}
+
+extension Tuple3 : TupleEntity {
+    public typealias Tuple = Tuple3
 }
 
 public class TypedTable<E : EntityLike> : TableProtocol, Rep {

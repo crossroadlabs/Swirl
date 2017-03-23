@@ -816,7 +816,7 @@ extension Comment : Entity {
     }
 }
 
-class Comments : TypedTable<TupleEntity<Tuple2<Int, String>>>, QueryLike {
+class Comments : TypedTable<Tuple2<Int, String>>, QueryLike {
 //class Comments : TypedTable<Comment>, QueryLike {
     public typealias DS = Comments
     public typealias Ret = Comments
