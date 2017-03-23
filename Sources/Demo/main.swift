@@ -651,6 +651,26 @@ public extension Query where Ret : Tuple2RepProtocol {
     }
 }
 
+public extension Query where Ret : Table2Protocol {
+    public var result:SwirlOperation<[(Ret.A, Ret.B)]> {
+        return SwirlOperation { swirl in
+            self.execute(in: swirl).flatMap{$0}.flatMap { results in
+                //results.columns.zip(results.all())
+                results.all()
+                }.map { /*(cols,*/ rows/*)*/ in
+                    rows.map(Tuple2Rep<TypedColumn<Ret.A>, TypedColumn<Ret.B>>.parse)
+                }.recover { (e:FutureError) in
+                    switch e {
+                    case .mappedNil:
+                        return []
+                    default:
+                        throw e
+                    }
+            }
+        }
+    }
+}
+
 let t = ErasedTable(name: "lala")
 let c = ErasedColumn(name: "qwe", in: t)
 
@@ -710,20 +730,25 @@ let swirl = try manager.swirl(url: "sqlite:///tmp/crlrsdc3.sqlite")
 let person = Q.table(name: "person")
 let comment = Q.table(name: "comment")
 
-class Comments : Table2<Int, String> {
-    let id: TypedColumn<Int>
-    let comment: TypedColumn<String>
+class Comments : Table2<Int?, String>, QueryLike {
+    public typealias DS = Comments
+    public typealias Ret = Comments
+    
+    override class var table: String {
+        return "comment"
+    }
+    
+    let id: TypedColumn<Int?> = Comments.column("id")
+    let comment: TypedColumn<String> = Comments.column("comment")
     
     init() {
-        id = TypedColumn(name: "id", in: ErasedTable(name: "comment"))
-        comment = TypedColumn(name: "comment", in: ErasedTable(name: "comment"))
-        super.init(name: "comment", all: Tuple2Rep(id, comment))
+        super.init(all: (id, comment))
     }
 }
 let comments = Comments()
 
-comments.filter { id, comment in
-    comment != nil
+comments.filter { c in
+    c.comment ~= "%s%"
 }.result.execute(in: swirl).onSuccess { comments in
     //every row is a tuple, types are preserved
     for (id, comment) in comments {

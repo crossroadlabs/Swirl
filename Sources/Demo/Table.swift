@@ -62,28 +62,52 @@ public struct ErasedTable : Table, QueryLike, Rep {
     }
 }
 
-public class Table2<A, B> : Table, QueryLike, Rep {
-    public typealias DS = Table2
-    public typealias Ret = Tuple2Rep<TypedColumn<A>, TypedColumn<B>>
-    public typealias Value = Ret.Value
+public protocol Table2Protocol : Table {
+    associatedtype A
+    associatedtype B
+    
+    static var table:String {get}
+}
+
+public extension Table2Protocol {
+    static func column<T>(_ name: String) -> TypedColumn<T> {
+        return TypedColumn(name: name, in: ErasedTable(name: Self.table))
+    }
+}
+
+public class Table2<AI, BI> : Table2Protocol, Rep {
+    public typealias A = AI
+    public typealias B = BI
+    public typealias Tuple = Tuple2Rep<TypedColumn<A>, TypedColumn<B>>
+    public typealias Value = Tuple.Value
     
     public let name:String
     public let columns: Columns
     
-    public let all:Ret
+    public let all:Tuple
     
-    public init(name:String, all:Ret) {
-        self.name = name
-        columns = .list(all.stripe.flatMap { $0 as? Column }.map {$0.name})
-        self.all = all
+    public init(all:Tuple.Value) {
+        self.name = type(of: self).table
+        self.all = Tuple2Rep(all.0, all.1)
+        self.columns = .list(self.all.stripe.flatMap { $0 as? Column }.map {$0.name})
     }
     
-    public func map<BRet : Rep>(_ f:(Ret)->BRet) -> QueryImpl<DS, BRet> {
-        return QueryImpl(dataset: self, ret: f(all))
+    public var stripe: [ErasedRep] {
+        return all.stripe
     }
     
-    public func filter(_ f: (Ret)->Predicate) -> QueryImpl<DS, Ret> {
-        return QueryImpl(dataset: self, ret: all, predicate: f(all))
+    public class var table: String {
+        fatalError()
+    }
+}
+
+public extension Table2Protocol where Self : QueryLike, Self.DS == Self, Self.Ret == Self {
+    public func map<BRet : Rep>(_ f:(Ret)->BRet) -> QueryImpl<Self, BRet> {
+        return QueryImpl(dataset: self, ret: f(self))
+    }
+    
+    public func filter(_ f: (Ret)->Predicate) -> QueryImpl<Self, Ret> {
+        return QueryImpl(dataset: self, ret: self, predicate: f(self))
     }
 }
 
