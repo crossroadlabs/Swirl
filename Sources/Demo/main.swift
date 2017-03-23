@@ -761,6 +761,7 @@ class Comments : TypedTable<Comment>, QueryLike {
     }
     
     let id: TypedColumn<Int> = Comments.column("id")
+    let personId: TypedColumn<Int> = Comments.column("person_id")
     let comment: TypedColumn<String> = Comments.column("comment")
     
     init() {
@@ -769,15 +770,15 @@ class Comments : TypedTable<Comment>, QueryLike {
 }
 let comments = Comments()
 
-/*comments.zip(with: person) { c, p in
-    c.id == p["id"].bind(Int.self)
+comments.zip(with: person) { c, p in
+    c.personId == p["id"].bind(Int.self)
 }.map { c, p in
     (p["firstname"].bind(String.self), c.comment)
 }.result.execute(in: swirl).onSuccess { join in
     for (name, comment) in join {
-        print("\(name) in \(comment)")
+        print("\(name) is \(comment)")
     }
-}*/
+}
 
 /*comments.map { c in
     (c.id, c.comment)
@@ -790,7 +791,7 @@ let comments = Comments()
     }
 }*/
 
-comments.filter { comment in
+/*comments.filter { comment in
     comment.id < 3 || comment.id > 5
 }.result.execute(in: swirl).onSuccess { comments in
     //every row is a tuple, types are preserved
@@ -800,7 +801,7 @@ comments.filter { comment in
 //    for (id, comment) in comments {
 //        print("'\(comment)' identified with ID: \(id)")
 //    }
-}
+}*/
 
 /*person.map { p in
     //
