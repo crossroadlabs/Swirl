@@ -74,56 +74,6 @@ public extension TableProtocol {
     }
 }
 
-public protocol CaseProtocol {
-    associatedtype Tuple : Demo.Tuple
-    
-    init(tuple:Tuple.Wrapped)
-    
-    var tuple:Self.Tuple.Wrapped {get}
-}
-
-public protocol EntityLike : ArrayParser {
-    associatedtype Tuple : RepRichTuple
-}
-
-public protocol Entity : CaseProtocol, EntityLike {
-}
-
-public extension Entity {
-    public typealias ArrayParseResult = Self
-    
-    public static func parse(array:[Any?]) -> Self {
-        return Self(tuple: Tuple.ColumnsRep.parse(array: array) as! Tuple.Wrapped)
-    }
-}
-
-public protocol TupleEntity : EntityLike {
-}
-
-public extension TupleEntity where Self : Demo.RepRichTuple {
-    public typealias ArrayParseResult = Self.ColumnsRep.Naked
-    
-    public var wrapper: Self {
-        return self
-    }
-    
-    public init(wrapper t: Self) {
-        self.init(tuple: t.tuple)
-    }
-    
-    public static func parse(array:[Any?]) -> Self.ColumnsRep.Naked {
-        return Self.ColumnsRep.parse(array: array)
-    }
-}
-
-extension Tuple2 : TupleEntity {
-    public typealias Tuple = Tuple2
-}
-
-extension Tuple3 : TupleEntity {
-    public typealias Tuple = Tuple3
-}
-
 public class TypedTable<E : EntityLike> : TableProtocol, Rep {
     public typealias Entity = E
     public typealias Tuple = Entity.Tuple
