@@ -26,6 +26,28 @@ public extension TupleRepProtocol {
     }
 }
 
+public protocol RepRichTuple : Tuple {
+    associatedtype ColumnsRep : TupleRepProtocol
+    
+    static func columns(_ columns:ColumnsRep.Value) -> ColumnsRep
+}
+
+extension Tuple2 : RepRichTuple {
+    public typealias ColumnsRep = Tuple2Rep<TypedColumn<A>, TypedColumn<B>>
+    
+    public static func columns(_ columns:ColumnsRep.Value) -> ColumnsRep {
+        return ColumnsRep(value: columns)
+    }
+}
+
+extension Tuple3 : RepRichTuple {
+    public typealias ColumnsRep = Tuple3Rep<TypedColumn<A>, TypedColumn<B>, TypedColumn<C>>
+    
+    public static func columns(_ columns:ColumnsRep.Value) -> ColumnsRep {
+        return ColumnsRep(value: columns)
+    }
+}
+
 ////////////////////////////////////////////////// TWO //////////////////////////////////////////////////
 
 public protocol Tuple2RepProtocol : TupleRepProtocol {

@@ -62,33 +62,31 @@ public struct ErasedTable : Table, QueryLike, Rep {
     }
 }
 
-public protocol Table2Protocol : Table {
-    associatedtype A
-    associatedtype B
+public protocol TableProtocol : Table {
+    associatedtype Tuple : RepRichTuple
     
     static var table:String {get}
 }
 
-public extension Table2Protocol {
+public extension TableProtocol {
     static func column<T>(_ name: String) -> TypedColumn<T> {
         return TypedColumn(name: name, in: ErasedTable(name: Self.table))
     }
 }
 
-public class Table2<AI, BI> : Table2Protocol, Rep {
-    public typealias A = AI
-    public typealias B = BI
-    public typealias Tuple = Tuple2Rep<TypedColumn<A>, TypedColumn<B>>
-    public typealias Value = Tuple.Value
+public class TypedTable<TupleI : RepRichTuple> : TableProtocol, Rep {
+    public typealias Tuple = TupleI
+    public typealias TupleRep = Tuple.ColumnsRep
+    public typealias Value = Tuple.ColumnsRep.Value
     
     public let name:String
     public let columns: Columns
     
-    public let all:Tuple
+    public let all:TupleRep
     
-    public init(all:Tuple.Value) {
+    public init(all:Value) {
         self.name = type(of: self).table
-        self.all = Tuple2Rep(all.0, all.1)
+        self.all = Tuple.columns(all)
         self.columns = .list(self.all.stripe.flatMap { $0 as? Column }.map {$0.name})
     }
     
@@ -101,7 +99,7 @@ public class Table2<AI, BI> : Table2Protocol, Rep {
     }
 }
 
-public extension Table2Protocol where Self : QueryLike, Self.DS == Self, Self.Ret == Self {
+public extension TableProtocol where Self : QueryLike, Self.DS == Self, Self.Ret == Self {
     public func map<BRet : Rep>(_ f:(Ret)->BRet) -> QueryImpl<Self, BRet> {
         return QueryImpl(dataset: self, ret: f(self))
     }

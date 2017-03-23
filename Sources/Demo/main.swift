@@ -629,6 +629,70 @@ public class SwirlOperation<Ret> {
     }
 }
 
+public protocol Tuple {
+    associatedtype Tuple
+    
+    init(tuple:Tuple)
+    
+    var tuple:Self.Tuple {get}
+}
+
+public typealias TupleProtocol = Tuple
+
+public protocol Tuple1Protocol : Tuple {
+    associatedtype A
+}
+
+public struct Tuple1<AI> : Tuple1Protocol {
+    public typealias A = AI
+    public typealias Tuple = (A)
+    
+    public let tuple: Tuple
+    
+    public init(tuple:Tuple) {
+        self.tuple = tuple
+    }
+    
+    public init(_ a:A) {
+        self.init(tuple:(a))
+    }
+}
+
+public protocol Tuple2Protocol : Tuple {
+    associatedtype A
+    associatedtype B
+}
+
+public struct Tuple2<AI, BI> : Tuple2Protocol {
+    public typealias A = AI
+    public typealias B = BI
+    public typealias Tuple = (A, B)
+    
+    public let tuple: Tuple
+    
+    public init(tuple:Tuple) {
+        self.tuple = tuple
+    }
+    
+    public init(_ a:A, _ b:B) {
+        self.init(tuple:(a, b))
+    }
+}
+
+public struct Tuple3<A, B, C> : Tuple {
+    public typealias Tuple = (A, B, C)
+    
+    public let tuple: Tuple
+    
+    public init(tuple:Tuple) {
+        self.tuple = tuple
+    }
+    
+    public init(_ a:A, _ b:B, _ c:C) {
+        self.init(tuple:(a, b, c))
+    }
+}
+
 
 //Shity fast implementation
 public extension Query where Ret : Tuple2RepProtocol {
@@ -651,15 +715,15 @@ public extension Query where Ret : Tuple2RepProtocol {
     }
 }
 
-public extension Query where Ret : Table2Protocol {
-    public var result:SwirlOperation<[(Ret.A, Ret.B)]> {
+public extension Query where Ret : TableProtocol {
+    public var result:SwirlOperation<[(Ret.Tuple.ColumnsRep.Naked)]> {
         return SwirlOperation { swirl in
             self.execute(in: swirl).flatMap{$0}.flatMap { results in
                 //results.columns.zip(results.all())
                 results.all()
-                }.map { /*(cols,*/ rows/*)*/ in
-                    rows.map(Tuple2Rep<TypedColumn<Ret.A>, TypedColumn<Ret.B>>.parse)
-                }.recover { (e:FutureError) in
+            }.map { /*(cols,*/ rows/*)*/ in
+                rows.map(Ret.Tuple.ColumnsRep.parse)
+            }.recover { (e:FutureError) in
                     switch e {
                     case .mappedNil:
                         return []
@@ -730,7 +794,7 @@ let swirl = try manager.swirl(url: "sqlite:///tmp/crlrsdc3.sqlite")
 let person = Q.table(name: "person")
 let comment = Q.table(name: "comment")
 
-class Comments : Table2<Int?, String>, QueryLike {
+class Comments : TypedTable<Tuple2<Int?, String>>, QueryLike {
     public typealias DS = Comments
     public typealias Ret = Comments
     
@@ -747,8 +811,10 @@ class Comments : Table2<Int?, String>, QueryLike {
 }
 let comments = Comments()
 
-comments.filter { c in
-    c.comment ~= "%s%"
+comments.map { c in
+    (c.id, c.comment)
+}.filter { id, comment in
+    comment ~= "%s%"
 }.result.execute(in: swirl).onSuccess { comments in
     //every row is a tuple, types are preserved
     for (id, comment) in comments {
