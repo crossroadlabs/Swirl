@@ -630,14 +630,14 @@ public class SwirlOperation<Ret> {
 }
 
 //Shity fast implementation
-public extension Query where Ret : Tuple2RepProtocol {
-    public var result:SwirlOperation<[(Ret.A.Value, Ret.B.Value)]> {
+public extension Query where Ret : TupleRepProtocol {
+    public var result:SwirlOperation<[Ret.Naked]> {
         return SwirlOperation { swirl in
             self.execute(in: swirl).flatMap{$0}.flatMap { results in
                 //results.columns.zip(results.all())
                 results.all()
             }.map { /*(cols,*/ rows/*)*/ in
-                rows.map(Tuple2Rep<Ret.A, Ret.B>.parse)
+                rows.map(Ret.parse)
             }.recover { (e:FutureError) in
                 switch e {
                 case .mappedNil:
@@ -769,7 +769,18 @@ class Comments : TypedTable<Tuple2<Int, String>>, QueryLike {
 }
 let comments = Comments()
 
-comments.filter { comment in
+comments.map { c in
+    (c.id, c.comment)
+}.filter { id, _ in
+    id < 3 || id > 5
+}.result.execute(in: swirl).onSuccess { comments in
+        //every row is a tuple, types are preserved
+    for (id, comment) in comments {
+        print("'\(comment)' identified with ID: \(id)")
+    }
+}
+
+/*comments.filter { comment in
     comment.id < 3 || comment.id > 5
 }.result.execute(in: swirl).onSuccess { comments in
     //every row is a tuple, types are preserved
@@ -779,7 +790,7 @@ comments.filter { comment in
     for (id, comment) in comments {
         print("'\(comment)' identified with ID: \(id)")
     }
-}
+}*/
 
 /*person.map { p in
     //
