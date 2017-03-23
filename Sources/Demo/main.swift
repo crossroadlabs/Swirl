@@ -630,11 +630,11 @@ public class SwirlOperation<Ret> {
 }
 
 public protocol Tuple {
-    associatedtype Tuple
+    associatedtype Wrapped
     
-    init(tuple:Tuple)
+    init(tuple: Wrapped)
     
-    var tuple:Self.Tuple {get}
+    var tuple: Wrapped {get}
 }
 
 public typealias TupleProtocol = Tuple
@@ -645,16 +645,16 @@ public protocol Tuple1Protocol : Tuple {
 
 public struct Tuple1<AI> : Tuple1Protocol {
     public typealias A = AI
-    public typealias Tuple = (A)
+    public typealias Wrapped = (A)
     
-    public let tuple: Tuple
+    public let tuple: Wrapped
     
-    public init(tuple:Tuple) {
+    public init(tuple: Wrapped) {
         self.tuple = tuple
     }
     
-    public init(_ a:A) {
-        self.init(tuple:(a))
+    public init(_ a: A) {
+        self.init(tuple: (a))
     }
 }
 
@@ -666,30 +666,30 @@ public protocol Tuple2Protocol : Tuple {
 public struct Tuple2<AI, BI> : Tuple2Protocol {
     public typealias A = AI
     public typealias B = BI
-    public typealias Tuple = (A, B)
+    public typealias Wrapped = (A, B)
     
-    public let tuple: Tuple
+    public let tuple: Wrapped
     
-    public init(tuple:Tuple) {
+    public init(tuple: Wrapped) {
         self.tuple = tuple
     }
     
-    public init(_ a:A, _ b:B) {
-        self.init(tuple:(a, b))
+    public init(_ a: A, _ b: B) {
+        self.init(tuple: (a, b))
     }
 }
 
 public struct Tuple3<A, B, C> : Tuple {
-    public typealias Tuple = (A, B, C)
+    public typealias Wrapped = (A, B, C)
     
-    public let tuple: Tuple
+    public let tuple: Wrapped
     
-    public init(tuple:Tuple) {
+    public init(tuple: Wrapped) {
         self.tuple = tuple
     }
     
-    public init(_ a:A, _ b:B, _ c:C) {
-        self.init(tuple:(a, b, c))
+    public init(_ a: A, _ b: B, _ c: C) {
+        self.init(tuple: (a, b, c))
     }
 }
 
@@ -715,8 +715,8 @@ public extension Query where Ret : Tuple2RepProtocol {
     }
 }
 
-public extension Query where Ret : TableProtocol, Ret : Rep, Ret.Value : Entity {
-    public var result:SwirlOperation<[Ret.Value]> {
+public extension Query where Ret : TableProtocol, Ret : Rep, Ret.Value : EntityLike {
+    public var result:SwirlOperation<[Ret.Value.ArrayParseResult]> {
         return SwirlOperation { swirl in
             self.execute(in: swirl).flatMap{$0}.flatMap { results in
                 //results.columns.zip(results.all())
@@ -816,7 +816,8 @@ extension Comment : Entity {
     }
 }
 
-class Comments : TypedTable<Comment>, QueryLike {
+class Comments : TypedTable<TupleEntity<Tuple2<Int, String>>>, QueryLike {
+//class Comments : TypedTable<Comment>, QueryLike {
     public typealias DS = Comments
     public typealias Ret = Comments
     
@@ -837,8 +838,11 @@ comments.filter { comment in
     comment.id < 3 || comment.id > 5
 }.result.execute(in: swirl).onSuccess { comments in
     //every row is a tuple, types are preserved
-    for comment in comments {
-        print("'\(comment.comment)' identified with ID: \(comment.id)")
+//    for comment in comments {
+//        print("'\(comment.comment)' identified with ID: \(comment.id)")
+//    }
+    for (id, comment) in comments {
+        print("'\(comment)' identified with ID: \(id)")
     }
 }
 

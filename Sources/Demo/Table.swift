@@ -77,43 +77,51 @@ public extension TableProtocol {
 public protocol CaseProtocol {
     associatedtype Tuple : Demo.Tuple
     
-    init(tuple:Tuple.Tuple)
+    init(tuple:Tuple.Wrapped)
     
-    var tuple:Self.Tuple.Tuple {get}
+    var tuple:Self.Tuple.Wrapped {get}
 }
 
-public protocol Entity : CaseProtocol, ArrayParser {
+public protocol EntityLike : CaseProtocol, ArrayParser {
     associatedtype Tuple : RepRichTuple
+}
+
+public protocol Entity : EntityLike {
 }
 
 public extension Entity {
     public typealias ArrayParseResult = Self
     
     public static func parse(array:[Any?]) -> Self {
-        return Self(tuple: Tuple.ColumnsRep.parse(array: array) as! Tuple.Tuple)
+        return Self(tuple: Tuple.ColumnsRep.parse(array: array) as! Tuple.Wrapped)
     }
 }
 
-public struct TupleEntity<TupleI : RepRichTuple> : Entity {
+public struct TupleEntity<TupleI : RepRichTuple> : EntityLike {
     public typealias Tuple = TupleI
+    public typealias ArrayParseResult = Tuple.ColumnsRep.Naked
 
-    public let wrapped: Tuple
+    public let wrapper: Tuple
 
-    public init(wrapped tuple: Tuple) {
-        wrapped = tuple
+    public init(wrapper tuple: Tuple) {
+        wrapper = tuple
     }
 
     
-    public init(tuple: Tuple.Tuple) {
-        self.init(wrapped: Tuple(tuple: tuple))
+    public init(tuple: Tuple.Wrapped) {
+        self.init(wrapper: Tuple(tuple: tuple))
     }
     
-    public var tuple: Tuple.Tuple {
-        return wrapped.tuple
+    public var tuple: Tuple.Wrapped {
+        return wrapper.tuple
+    }
+    
+    public static func parse(array:[Any?]) -> ArrayParseResult {
+        return Tuple.ColumnsRep.parse(array: array)
     }
 }
 
-public class TypedTable<E : Entity> : TableProtocol, Rep {
+public class TypedTable<E : EntityLike> : TableProtocol, Rep {
     public typealias Entity = E
     public typealias Tuple = Entity.Tuple
     public typealias ColumnsRep = Tuple.ColumnsRep
