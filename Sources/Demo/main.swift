@@ -715,14 +715,14 @@ public extension Query where Ret : Tuple2RepProtocol {
     }
 }
 
-public extension Query where Ret : TableProtocol {
-    public var result:SwirlOperation<[Ret.Tuple.ColumnsRep.Naked]> {
+public extension Query where Ret : TableProtocol, Ret : Rep, Ret.Value : Entity {
+    public var result:SwirlOperation<[Ret.Value]> {
         return SwirlOperation { swirl in
             self.execute(in: swirl).flatMap{$0}.flatMap { results in
                 //results.columns.zip(results.all())
                 results.all()
             }.map { /*(cols,*/ rows/*)*/ in
-                rows.map(Ret.Tuple.ColumnsRep.parse)
+                rows.map(Ret.Value.parse)
             }.recover { (e:FutureError) in
                 switch e {
                     case .mappedNil:
@@ -794,7 +794,29 @@ let swirl = try manager.swirl(url: "sqlite:///tmp/crlrsdc3.sqlite")
 let person = Q.table(name: "person")
 let comment = Q.table(name: "comment")
 
-class Comments : TypedTable<Tuple2<Int?, String>>, QueryLike {
+struct Comment {
+    let id:Int
+    let comment:String
+    
+    init(id:Int, comment:String) {
+        self.id = id
+        self.comment = comment
+    }
+}
+
+extension Comment : Entity {
+    typealias Tuple = Tuple2<Int, String>
+    
+    init(tuple: (Int, String)) {
+        self.init(id: tuple.0, comment: tuple.1)
+    }
+    
+    var tuple:(Int, String) {
+        return (id, comment)
+    }
+}
+
+class Comments : TypedTable<Comment>, QueryLike {
     public typealias DS = Comments
     public typealias Ret = Comments
     
@@ -802,7 +824,7 @@ class Comments : TypedTable<Tuple2<Int?, String>>, QueryLike {
         return "comment"
     }
     
-    let id: TypedColumn<Int?> = Comments.column("id")
+    let id: TypedColumn<Int> = Comments.column("id")
     let comment: TypedColumn<String> = Comments.column("comment")
     
     init() {
@@ -811,14 +833,12 @@ class Comments : TypedTable<Tuple2<Int?, String>>, QueryLike {
 }
 let comments = Comments()
 
-comments.map { c in
-    (c.id, c.comment)
-}.filter { id, comment in
-    comment ~= "%s%"
+comments.filter { comment in
+    comment.id < 3 || comment.id > 5
 }.result.execute(in: swirl).onSuccess { comments in
     //every row is a tuple, types are preserved
-    for (id, comment) in comments {
-        print("\(comment) identified with ID: \(id)")
+    for comment in comments {
+        print("'\(comment.comment)' identified with ID: \(comment.id)")
     }
 }
 

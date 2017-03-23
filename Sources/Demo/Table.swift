@@ -74,17 +74,57 @@ public extension TableProtocol {
     }
 }
 
-public class TypedTable<TupleI : RepRichTuple> : TableProtocol, Rep {
+public protocol CaseProtocol {
+    associatedtype Tuple : Demo.Tuple
+    
+    init(tuple:Tuple.Tuple)
+    
+    var tuple:Self.Tuple.Tuple {get}
+}
+
+public protocol Entity : CaseProtocol, ArrayParser {
+    associatedtype Tuple : RepRichTuple
+}
+
+public extension Entity {
+    public typealias ArrayParseResult = Self
+    
+    public static func parse(array:[Any?]) -> Self {
+        return Self(tuple: Tuple.ColumnsRep.parse(array: array) as! Tuple.Tuple)
+    }
+}
+
+public struct TupleEntity<TupleI : RepRichTuple> : Entity {
     public typealias Tuple = TupleI
-    public typealias TupleRep = Tuple.ColumnsRep
-    public typealias Value = Tuple.ColumnsRep.Value
+
+    public let wrapped: Tuple
+
+    public init(wrapped tuple: Tuple) {
+        wrapped = tuple
+    }
+
+    
+    public init(tuple: Tuple.Tuple) {
+        self.init(wrapped: Tuple(tuple: tuple))
+    }
+    
+    public var tuple: Tuple.Tuple {
+        return wrapped.tuple
+    }
+}
+
+public class TypedTable<E : Entity> : TableProtocol, Rep {
+    public typealias Entity = E
+    public typealias Tuple = Entity.Tuple
+    public typealias ColumnsRep = Tuple.ColumnsRep
+    public typealias Value = Entity
     
     public let name:String
     public let columns: Columns
     
-    public let all:TupleRep
+    public let all:ColumnsRep
     
-    public init(all:Value) {
+    public init(all:ColumnsRep.Value) {
         self.name = type(of: self).table
         self.all = Tuple.columns(all)
         self.columns = .list(self.all.stripe.flatMap { $0 as? Column }.map {$0.name})

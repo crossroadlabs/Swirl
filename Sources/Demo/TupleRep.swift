@@ -14,10 +14,15 @@
 //limitations under the License.
 //===----------------------------------------------------------------------===//
 
-public protocol TupleRepProtocol : ValueRepProtocol {
-    associatedtype Naked
+public protocol ArrayParser {
+    associatedtype ArrayParseResult
     
-    static func parse(array:[Any?]) -> Naked
+    static func parse(array:[Any?]) -> ArrayParseResult
+}
+
+public protocol TupleRepProtocol : ValueRepProtocol, ArrayParser {
+    associatedtype Naked
+    typealias ArrayParseResult = Naked
 }
 
 public extension TupleRepProtocol {
