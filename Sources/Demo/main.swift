@@ -716,7 +716,7 @@ public extension Query where Ret : Tuple2RepProtocol {
 }
 
 public extension Query where Ret : TableProtocol {
-    public var result:SwirlOperation<[(Ret.Tuple.ColumnsRep.Naked)]> {
+    public var result:SwirlOperation<[Ret.Tuple.ColumnsRep.Naked]> {
         return SwirlOperation { swirl in
             self.execute(in: swirl).flatMap{$0}.flatMap { results in
                 //results.columns.zip(results.all())
@@ -724,12 +724,12 @@ public extension Query where Ret : TableProtocol {
             }.map { /*(cols,*/ rows/*)*/ in
                 rows.map(Ret.Tuple.ColumnsRep.parse)
             }.recover { (e:FutureError) in
-                    switch e {
+                switch e {
                     case .mappedNil:
                         return []
                     default:
                         throw e
-                    }
+                }
             }
         }
     }
