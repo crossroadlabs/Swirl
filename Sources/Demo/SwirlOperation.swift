@@ -70,6 +70,10 @@ public extension QueryLike where Ret.Value : EntityLike, DS : TableProtocol {
             swirl.execute(renderlet: insert).map {_ in ()}
         }
     }
+    
+    public static func +=(q:Self, item: Ret.Value.Bind) -> SwirlOperation<Void> {
+        return q.insert(item: item)
+    }
 }
 
 extension QueryLike {

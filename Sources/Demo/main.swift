@@ -769,13 +769,17 @@ comments.map { c in
     }
 }*/
 
-/*comments.map { c in
+let io = comments.map { c in
     (c.personId, c.comment)
-}.insert(item: (5, "Agent")).execute(in: swirl).onSuccess {
+} += (5, "Agent")
+
+let io2 = comments += Comment(id: 123, comment: "Test")
+    
+io.execute(in: swirl).onSuccess {
     print("OK")
 }.onFailure { e in
     print("!!!Error:", e)
-}*/
+}
 
 comments.filter { comment in
     comment.id < 3 || comment.id > 5
