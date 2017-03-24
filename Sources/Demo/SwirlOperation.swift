@@ -60,8 +60,10 @@ public extension QueryLike where Ret.Value : EntityLike {
     public var result:SwirlOperation<[Ret.Value.Bind]> {
         return self.query.select(parse: Ret.Value.parse)
     }
-    
-    public func insert(item: Ret.Value) -> SwirlOperation<Void> {
+}
+
+public extension QueryLike where Ret.Value : EntityLike, DS : TableProtocol {
+    public func insert(item: Ret.Value.Bind) -> SwirlOperation<Void> {
         let insert: Renderlet = self.query.insert(item: item)
         
         return SwirlOperation { swirl in
@@ -80,22 +82,13 @@ extension QueryLike {
             self.query.render(dialect: dialect)
         }
     }
-    
-    func insert(item:Ret.Value) -> Renderlet {
-        return { dialect in
-            fatalError()
-        }
-    }
 }
 
-/*public extension Query where Ret : TupleRepProtocol {
-    public var result:SwirlOperation<[Ret.Res]> {
-        return self.select { array -> Ret.Res in
-            Ret.parse(array: array) as! Ret.Res
+extension QueryLike where Ret.Value : EntityLike, DS : TableProtocol {
+    fileprivate func insert(item: Ret.Value.Bind) -> Renderlet {
+        let q = self.query
+        return { dialect in
+            dialect.render(insert: Ret.Value.unbind(bound: item).rep(), to: q.dataset, ret: q.ret)
         }
     }
-}*/
-
-public extension QueryLike where Ret : Rep, Ret.Value : EntityLike {
-    
 }

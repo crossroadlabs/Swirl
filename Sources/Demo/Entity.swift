@@ -18,7 +18,8 @@ public protocol EntityLike {
     associatedtype Tuple : RepRichTuple
     associatedtype Bind
     
-    static func parse(array:[Any?]) -> Bind
+    static func parse(array: [Any?]) -> Bind
+    static func unbind(bound: Bind) -> Self
     func rep() -> [ErasedRep]
 }
 
@@ -29,8 +30,12 @@ public extension Entity {
     public typealias ArrayParseResult = Self
     public typealias Bind = Self
     
-    public static func parse(array:[Any?]) -> Self {
+    public static func parse(array: [Any?]) -> Self {
         return Self(tuple: Tuple(array: array).tuple)
+    }
+    
+    public static func unbind(bound: Self) -> Self {
+        return bound
     }
     
     public func rep() -> [ErasedRep] {
@@ -38,10 +43,11 @@ public extension Entity {
     }
 }
 
-public protocol TupleEntity : EntityLike {
+public protocol TupleEntity : EntityLike, Tuple {
+    associatedtype Bind : Wrapped
 }
 
-public extension TupleEntity where Self : Demo.RepRichTuple {
+public extension TupleEntity where Self : Demo.RepRichTuple, Bind == Wrapped {
     public typealias ArrayParseResult = Self.Wrapped
     
     public var wrapper: Self {
@@ -54,6 +60,10 @@ public extension TupleEntity where Self : Demo.RepRichTuple {
     
     public func rep() -> [ErasedRep] {
         return stripe.map(ValueRep.init)
+    }
+    
+    public static func unbind(bound: Bind) -> Self {
+        return Self(tuple: bound)
     }
     
     public static func parse(array:[Any?]) -> Self.Wrapped {

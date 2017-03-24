@@ -406,9 +406,14 @@ extension Dialect {
         return "?"
     }
     
+    var phony:String {
+        return "!"
+    }
+    
     func render(column: String, table: String, escape:Bool) -> SQL {
         let col = escape ? "`\(column)`" : column
-        return SQL(query: "\(table).\(col)", parameters: [])
+        let sql = table == phony ? col : "\(table).\(col)"
+        return SQL(query: sql, parameters: [])
     }
     
     func render(columns: Columns, table: String) -> [SQL] {
@@ -437,16 +442,33 @@ extension Dialect {
         }
     }
     
-    func render<E: EntityLike, DS: TableProtocol>(insert entity:E, to table:DS) -> SQL {
+    func aliases<DS : Dataset>(dataset:DS) -> [String: String] {
+        let tables = dataset.tables
+        return toMap(tables.reversed().enumerated().map { (i, table) in
+            (table.name, name(at: i))
+        })
+    }
+    
+    func phonyAliases<DS : Dataset>(dataset:DS) -> [String: String] {
+        return toMap(aliases(dataset: dataset).map { k, _ in
+            (k, phony)
+        })
+    }
+    
+    func render<DS: TableProtocol, Ret: Rep>(insert row: [ErasedRep], to table:DS, ret: Ret) -> SQL {
+        //yes aliases must be empty
+        let tsql = table.render(dialect: self, aliases: [:])
         
-        fatalError()
+        let phony = phonyAliases(dataset: table)
+        
+        let csql = render(columns: ret, aliases: phony)
+        let vsql = row.map {($0, phony)}.map(render).joined(separator: ", ")
+        
+        return "INSERT INTO " + tsql + " (" + csql + ") VALUES(" + vsql + ")"
     }
     
     func render<DS: Dataset, Ret : Rep>(dataset:DS, ret: Ret, filter:Predicate, limit:Limit?) -> SQL {
-        let tables = dataset.tables
-        let aliases = toMap(tables.reversed().enumerated().map { (i, table) in
-            (table.name, name(at: i))
-        })
+        let aliases = self.aliases(dataset: dataset)
         
         let columns = render(columns: ret, aliases: aliases)
         let source = dataset.render(dialect: self, aliases: aliases)
@@ -476,8 +498,12 @@ extension Dialect {
     }
     
     func render(table:Table, aliases: [String: String]) -> SQL {
-        let alias = aliases[table.name]!
-        return SQL(query: "`\(table.name)` as \(alias)", parameters: [])
+        let alias = aliases[table.name]
+        let text = alias.map { alias in
+            "`\(table.name)` as \(alias)"
+        } ?? "`\(table.name)`"
+        
+        return SQL(query: text, parameters: [])
     }
     
     func render<T>(value: T?) -> SQL {
@@ -741,6 +767,14 @@ comments.map { c in
     for (id, comment) in comments {
         print("'\(comment)' identified with ID: \(id)")
     }
+}*/
+
+/*comments.map { c in
+    (c.personId, c.comment)
+}.insert(item: (5, "Agent")).execute(in: swirl).onSuccess {
+    print("OK")
+}.onFailure { e in
+    print("!!!Error:", e)
 }*/
 
 comments.filter { comment in
