@@ -36,7 +36,7 @@ class AsyncDriver : Driver {
         return future(context: context) {
             try driver.connect(url: url, params: params)
             //TODO: use zip instead of map{($0, context)}
-            }.map{($0, context)}.map(AsyncConnection.init)
+        }.map{($0, context)}.map(AsyncConnection.init)
     }
 }
 

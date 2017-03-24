@@ -105,16 +105,22 @@ public protocol Dialect {
 public typealias Renderlet = (Dialect) -> SQL
 
 public class Swirl {
-    private let _pool:ConnectionPool
+    private let _connection:Connection
     private let _dialect:Dialect
+    private let _release:()->()
     
-    init(pool:ConnectionPool, dialect:Dialect) throws {
-        _pool = pool
+    init(connection: Connection, dialect: Dialect, release: @escaping ()->()) throws {
+        _connection = connection
         _dialect = dialect
+        _release = release
+    }
+    
+    convenience init(connection: Connection, dialect: Dialect) throws {
+        try self.init(connection: connection, dialect: dialect) {}
     }
     
     func execute(sql:SQL) -> Future<ResultSet?> {
-        return _pool.execute(query: sql.query, parameters: sql.parameters, named: [:])
+        return _connection.execute(query: sql.query, parameters: sql.parameters, named: [:])
     }
     
     func render(renderlet: Renderlet) -> SQL {
@@ -124,13 +130,22 @@ public class Swirl {
     func execute(renderlet: Renderlet) -> Future<ResultSet?> {
         return execute(sql: render(renderlet: renderlet))
     }
+    
+    var sequencial: Future<Swirl> {
+        let pool = _connection as? ConnectionPool
+        let connection = pool.map {$0.connection()} ?? Future(value: (_connection, {}))
+        let dialect = _dialect
+        return connection.map { (connection, release) in
+            try Swirl(connection: connection, dialect: dialect, release: release)
+        }
+    }
 }
 
 public extension SwirlManager {
     public func swirl(url:String, params:[String: String] = [:]) throws -> Swirl {
         let dialect = try driver(url: url, params: params).dialect
         let pool = _rdbc.pool(url: url, params: params)
-        return try Swirl(pool: pool, dialect: dialect)
+        return try Swirl(connection: pool, dialect: dialect)
     }
 }
 

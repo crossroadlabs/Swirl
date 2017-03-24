@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 import Future
+import Event
 
 public class SwirlOperation<Ret> {
     public typealias SwirlOp = (Swirl) -> Future<Ret>
@@ -30,11 +31,38 @@ public class SwirlOperation<Ret> {
     }
 }
 
-/*extension SwirlOperation where Ret : Sequence {
-    static func result<Q : QueryLike>(query: Q, parse:@escaping ([Any?])->Ret) -> SwirlOperation where Q.Ret : Demo.Ret, Ret.Iterator.Element == Q.Ret.Res {
-        
+public extension SwirlOperation {
+    public static func <=(swirl:Swirl, operation:SwirlOperation) -> Future<Ret> {
+        return operation.execute(in: swirl)
     }
-}*/
+    
+    public static func =>(operation:SwirlOperation, swirl:Swirl) -> Future<Ret> {
+        return operation.execute(in: swirl)
+    }
+}
+
+public extension Swirl {
+    public func execute<Ret>(_ operation: SwirlOperation<Ret>) -> Future<Ret> {
+        return operation.execute(in: self)
+    }
+    
+    public func execute<Ret>(_ operations: [SwirlOperation<Ret>]) -> Future<[Ret]> {
+        //we can't do traverse here. This shit must be sequencial
+        guard let head = operations.first else {
+            return Future(value: [])
+        }
+        
+        let tail = operations.dropFirst()
+        let swirl = self.sequencial
+        return swirl.flatMap { swirl in
+            head.execute(in: swirl).flatMap { result in
+                swirl.execute(Array(tail)).map { rest in
+                    [result] + rest
+                }
+            }
+        }
+    }
+}
 
 private extension QueryLike where Ret.Value : EntityLike {
     func select(parse:@escaping ([Any?])->Ret.Value.Bind) -> SwirlOperation<[Ret.Value.Bind]> {

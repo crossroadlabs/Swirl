@@ -769,19 +769,25 @@ comments.map { c in
     }
 }*/
 
-let io = comments.map { c in
-    (c.personId, c.comment)
-} += (5, "Agent")
-
-let io2 = comments += Comment(id: 123, comment: "Test")
-    
-io.execute(in: swirl).onSuccess {
-    print("OK")
-}.onFailure { e in
-    print("!!!Error:", e)
+swirl.execute([comments.map {($0.personId, $0.comment)} += (5, "WTF1"),
+               comments.map {($0.personId, $0.comment)} += (5, "WTF"),
+               comments.map {($0.personId, $0.comment)} += (5, "WTF3")]).onSuccess { ressult in
+    print("Inserted shit:", ressult)
 }
 
-comments.filter { comment in
+/*swirl.execute(operation: comments += Comment(id: 1257, comment: "Test222")).onSuccess { res in
+    print("Inserted shit:", res)
+}.onFailure { e in
+    print("E!!:", e)
+}*/
+
+/*swirl.execute(operation: comments.map {($0.personId, $0.comment)} += (5, "Test222")).onSuccess { res in
+    print("Inserted shit:", res)
+    }.onFailure { e in
+        print("E!!:", e)
+}*/
+
+/*comments.filter { comment in
     comment.id < 3 || comment.id > 5
 }.result.execute(in: swirl).onSuccess { comments in
     //every row is a tuple, types are preserved
@@ -791,7 +797,7 @@ comments.filter { comment in
 //    for (id, comment) in comments {
 //        print("'\(comment)' identified with ID: \(id)")
 //    }
-}
+}*/
 
 /*person.map { p in
     //

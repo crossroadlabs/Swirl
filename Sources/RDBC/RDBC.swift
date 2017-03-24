@@ -69,6 +69,11 @@ public class ConnectionPool : Connection {
             connection.execute(query: query, parameters: parameters, named: named)
         }
     }
+    
+    public func connection() -> Future<(Connection, ()->())> {
+        //TODO: reclaim connection
+        return _connectionFactory().map { ($0, {}) }
+    }
 }
 
 public class RDBC : ConnectionFactory, PoolFactory {
@@ -110,7 +115,7 @@ public class RDBC : ConnectionFactory, PoolFactory {
     }
     
     public func connect(url: String, params: Dictionary<String, String>) -> Future<Connection> {
-        return future(context: immediate) {
+        return future(context: _contextFactory()) {
             try self.driver(url: url, params: params)
         }.flatMap { driver in
             driver.connect(url: url, params: params)
