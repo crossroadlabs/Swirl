@@ -102,17 +102,27 @@ public protocol Dialect {
     var proto:String {get}
 }
 
+public typealias Renderlet = (Dialect) -> SQL
+
 public class Swirl {
     private let _pool:ConnectionPool
-    let dialect:Dialect
+    private let _dialect:Dialect
     
     init(pool:ConnectionPool, dialect:Dialect) throws {
         _pool = pool
-        self.dialect = dialect
+        _dialect = dialect
     }
     
     func execute(sql:SQL) -> Future<ResultSet?> {
         return _pool.execute(query: sql.query, parameters: sql.parameters, named: [:])
+    }
+    
+    func render(renderlet: Renderlet) -> SQL {
+        return renderlet(_dialect)
+    }
+    
+    func execute(renderlet: Renderlet) -> Future<ResultSet?> {
+        return execute(sql: render(renderlet: renderlet))
     }
 }
 

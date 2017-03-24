@@ -36,16 +36,16 @@ public class SwirlOperation<Ret> {
     }
 }*/
 
-private extension QueryLike where Ret : Demo.Rep, Ret.Value : EntityLike {
+private extension QueryLike where Ret.Value : EntityLike {
     func select(parse:@escaping ([Any?])->Ret.Value.Bind) -> SwirlOperation<[Ret.Value.Bind]> {
         let select = query.select
         return SwirlOperation { swirl in
-            return swirl.execute(sql: select(swirl)).flatMap{$0}.flatMap { results in
+            swirl.execute(renderlet: select).flatMap{$0}.flatMap { results in
                 results.all()
-                }.map { /*(cols,*/ rows/*)*/ in
-                    rows.map(parse)
-                }.recover { (e:FutureError) in
-                    switch e {
+            }.map { /*(cols,*/ rows/*)*/ in
+                rows.map(parse)
+            }.recover { (e:FutureError) in
+                switch e {
                     case .mappedNil:
                         return []
                     default:
@@ -56,19 +56,33 @@ private extension QueryLike where Ret : Demo.Rep, Ret.Value : EntityLike {
     }
 }
 
+public extension QueryLike where Ret.Value : EntityLike {
+    public var result:SwirlOperation<[Ret.Value.Bind]> {
+        return self.query.select(parse: Ret.Value.parse)
+    }
+    
+    public func insert(item: Ret.Value) -> SwirlOperation<Void> {
+        let insert: Renderlet = self.query.insert(item: item)
+        
+        return SwirlOperation { swirl in
+            swirl.execute(renderlet: insert).map {_ in ()}
+        }
+    }
+}
+
 extension QueryLike {
     var query:QueryImpl<DS, Ret> {
         return self.map {$0}
     }
     
-    var select:(Swirl) -> SQL {
-        return { swirl in
-            self.query.render(dialect: swirl.dialect)
+    var select: Renderlet {
+        return { dialect in
+            self.query.render(dialect: dialect)
         }
     }
     
-    func insert(item:Ret) -> (Swirl) -> SQL {
-        return { swirl in
+    func insert(item:Ret.Value) -> Renderlet {
+        return { dialect in
             fatalError()
         }
     }
@@ -83,7 +97,5 @@ extension QueryLike {
 }*/
 
 public extension QueryLike where Ret : Rep, Ret.Value : EntityLike {
-    public var result:SwirlOperation<[Ret.Value.Bind]> {
-        return self.query.select(parse: Ret.Value.parse)
-    }
+    
 }

@@ -506,8 +506,6 @@ extension Dialect {
             return "(" + a + " <= " + b + ")"
         case .like:
             return "(" + a + " LIKE " + b + ")"
-        default:
-            fatalError("Not implemented")
         }
     }
     
