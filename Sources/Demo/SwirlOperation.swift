@@ -17,7 +17,14 @@
 import Future
 import Event
 
-public class SwirlOperation<Ret> {
+public protocol SwirlOperationProtocol {
+    associatedtype Ret
+    
+    func execute(in swirl:Swirl) -> Future<Ret>
+}
+
+public class SwirlOperation<RetI> : SwirlOperationProtocol {
+    public typealias Ret = RetI
     public typealias SwirlOp = (Swirl) -> Future<Ret>
     
     private let _op:SwirlOp
@@ -31,22 +38,20 @@ public class SwirlOperation<Ret> {
     }
 }
 
-public extension SwirlOperation {
-    public static func <=(swirl:Swirl, operation:SwirlOperation) -> Future<Ret> {
-        return operation.execute(in: swirl)
-    }
-    
-    public static func =>(operation:SwirlOperation, swirl:Swirl) -> Future<Ret> {
-        return operation.execute(in: swirl)
-    }
+public func <=<SO : SwirlOperationProtocol>(swirl:Swirl, operation: SO) -> Future<SO.Ret> {
+    return operation.execute(in: swirl)
+}
+
+public func =><SO : SwirlOperationProtocol>(operation: SO, swirl:Swirl) -> Future<SO.Ret> {
+    return operation.execute(in: swirl)
 }
 
 public extension Swirl {
-    public func execute<Ret>(_ operation: SwirlOperation<Ret>) -> Future<Ret> {
+    public func execute<Ret, SO : SwirlOperationProtocol>(_ operation: SO) -> Future<Ret> where SO.Ret == Ret {
         return operation.execute(in: self)
     }
     
-    public func execute<Ret>(_ operations: [SwirlOperation<Ret>]) -> Future<[Ret]> {
+    public func execute<Ret, SO : SwirlOperationProtocol>(_ operations: [SO]) -> Future<[Ret]> where SO.Ret == Ret {
         //we can't do traverse here. This shit must be sequencial
         guard let head = operations.first else {
             return Future(value: [])
@@ -61,6 +66,12 @@ public extension Swirl {
                 }
             }
         }
+    }
+}
+
+public extension Sequence where Iterator.Element : SwirlOperationProtocol {
+    public func execute(in swirl: Swirl) -> Future<[Iterator.Element.Ret]> {
+        return swirl.execute(Array(self))
     }
 }
 

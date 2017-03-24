@@ -786,9 +786,9 @@ comments.map { c in
     }
 }*/
 
-swirl.execute([comments.map {($0.personId, $0.comment)} += (5, "WTF1"),
-               comments.map {($0.personId, $0.comment)} += (5, "WTF"),
-               comments.map {($0.personId, $0.comment)} += (5, "WTF3")]).onSuccess { ressult in
+[comments.map {($0.personId, $0.comment)} += (5, "WTF1"),
+ comments.map {($0.personId, $0.comment)} += (5, "WTF"),
+ comments.map {($0.personId, $0.comment)} += (5, "WTF3")].execute(in: swirl).onSuccess { ressult in
     print("Inserted shit:", ressult)
 }
 
