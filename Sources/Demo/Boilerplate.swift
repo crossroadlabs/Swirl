@@ -20,6 +20,7 @@ public protocol Tuple {
     init(tuple: Wrapped)
     
     var tuple: Wrapped {get}
+    var stripe:[Any] {get}
 }
 
 public typealias TupleProtocol = Tuple
@@ -40,6 +41,10 @@ public struct Tuple1<AI> : Tuple1Protocol {
     
     public init(_ a: A) {
         self.init(tuple: (a))
+    }
+    
+    public var stripe:[Any] {
+        return [tuple]
     }
 }
 
@@ -62,6 +67,10 @@ public struct Tuple2<AI, BI> : Tuple2Protocol {
     public init(_ a: A, _ b: B) {
         self.init(tuple: (a, b))
     }
+    
+    public var stripe:[Any] {
+        return [tuple.0, tuple.1]
+    }
 }
 
 public struct Tuple3<A, B, C> : Tuple {
@@ -75,6 +84,10 @@ public struct Tuple3<A, B, C> : Tuple {
     
     public init(_ a: A, _ b: B, _ c: C) {
         self.init(tuple: (a, b, c))
+    }
+    
+    public var stripe:[Any] {
+        return [tuple.0, tuple.1, tuple.2]
     }
 }
 

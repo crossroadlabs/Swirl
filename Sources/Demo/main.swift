@@ -435,6 +435,11 @@ extension Dialect {
         }
     }
     
+    func render<E: EntityLike, DS: TableProtocol>(insert entity:E, to table:DS) -> SQL {
+        
+        fatalError()
+    }
+    
     func render<DS: Dataset, Ret : Rep>(dataset:DS, ret: Ret, filter:Predicate, limit:Limit?) -> SQL {
         let tables = dataset.tables
         let aliases = toMap(tables.reversed().enumerated().map { (i, table) in
@@ -615,61 +620,6 @@ public extension MetaValue {
     }
 }
 
-public class SwirlOperation<Ret> {
-    public typealias SwirlOp = (Swirl) -> Future<Ret>
-    
-    private let _op:SwirlOp
-    
-    public init(_ f:@escaping SwirlOp) {
-        _op = f
-    }
-    
-    public func execute(in swirl:Swirl) -> Future<Ret> {
-        return _op(swirl)
-    }
-}
-
-//Shity fast implementation
-public extension Query where Ret : TupleRepProtocol {
-    public var result:SwirlOperation<[Ret.Naked]> {
-        return SwirlOperation { swirl in
-            self.execute(in: swirl).flatMap{$0}.flatMap { results in
-                //results.columns.zip(results.all())
-                results.all()
-            }.map { /*(cols,*/ rows/*)*/ in
-                rows.map(Ret.parse)
-            }.recover { (e:FutureError) in
-                switch e {
-                case .mappedNil:
-                    return []
-                default:
-                    throw e
-                }
-            }
-        }
-    }
-}
-
-public extension Query where Ret : TableProtocol, Ret : Rep, Ret.Value : EntityLike {
-    public var result:SwirlOperation<[Ret.Value.ArrayParseResult]> {
-        return SwirlOperation { swirl in
-            self.execute(in: swirl).flatMap{$0}.flatMap { results in
-                //results.columns.zip(results.all())
-                results.all()
-            }.map { /*(cols,*/ rows/*)*/ in
-                rows.map(Ret.Value.parse)
-            }.recover { (e:FutureError) in
-                switch e {
-                    case .mappedNil:
-                        return []
-                    default:
-                        throw e
-                }
-            }
-        }
-    }
-}
-
 let t = ErasedTable(name: "lala")
 let c = ErasedColumn(name: "qwe", in: t)
 
@@ -770,17 +720,19 @@ class Comments : TypedTable<Comment>, QueryLike {
 }
 let comments = Comments()
 
-comments.zip(with: person) { c, p in
+/*comments.zip(with: person) { c, p in
     c.personId == p["id"].bind(Int.self)
+}.filter { c, p in
+    c.id > 3
 }.map { c, p in
     (p["firstname"].bind(String.self), c.comment)
 }.result.execute(in: swirl).onSuccess { join in
     for (name, comment) in join {
         print("\(name) is \(comment)")
     }
-}
+}*/
 
-/*comments.map { c in
+comments.map { c in
     (c.id, c.comment)
 }.filter { id, _ in
     id < 3 || id > 5
@@ -789,18 +741,18 @@ comments.zip(with: person) { c, p in
     for (id, comment) in comments {
         print("'\(comment)' identified with ID: \(id)")
     }
-}*/
+}
 
 /*comments.filter { comment in
     comment.id < 3 || comment.id > 5
 }.result.execute(in: swirl).onSuccess { comments in
     //every row is a tuple, types are preserved
-    for comment in comments {
+    /*for comment in comments {
         print("'\(comment.comment)' identified with ID: \(comment.id)")
+    }*/
+    for (id, comment) in comments {
+        print("'\(comment)' identified with ID: \(id)")
     }
-//    for (id, comment) in comments {
-//        print("'\(comment)' identified with ID: \(id)")
-//    }
 }*/
 
 /*person.map { p in

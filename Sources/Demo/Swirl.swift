@@ -104,19 +104,15 @@ public protocol Dialect {
 
 public class Swirl {
     private let _pool:ConnectionPool
-    private let _dialect:Dialect
+    let dialect:Dialect
     
     init(pool:ConnectionPool, dialect:Dialect) throws {
         _pool = pool
-        _dialect = dialect
+        self.dialect = dialect
     }
     
     func execute(sql:SQL) -> Future<ResultSet?> {
         return _pool.execute(query: sql.query, parameters: sql.parameters, named: [:])
-    }
-    
-    func execute<Q : Query>(query:Q) -> Future<ResultSet?> {
-        return self.execute(sql: query.render(dialect: _dialect))
     }
 }
 
@@ -131,10 +127,6 @@ public extension SwirlManager {
 public extension Query {
     func render(dialect:Dialect) -> SQL {
         return dialect.render(dataset: dataset, ret: ret, filter: self.predicate, limit: limit)
-    }
-    
-    public func execute(in swirl:Swirl) -> Future<ResultSet?> {
-        return swirl.execute(query: self)
     }
 }
 

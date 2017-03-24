@@ -64,6 +64,7 @@ public struct ErasedTable : Table, QueryLike, Rep {
 
 public protocol TableProtocol : Table {
     associatedtype Tuple : RepRichTuple
+    associatedtype Value
     
     static var table:String {get}
 }
