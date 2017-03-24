@@ -14,7 +14,7 @@
 //limitations under the License.
 //===----------------------------------------------------------------------===//
 
-public protocol EntityLike : ArrayParser {
+public protocol EntityLike {
     associatedtype Tuple : RepRichTuple
     associatedtype Bind
     
@@ -30,7 +30,7 @@ public extension Entity {
     public typealias Bind = Self
     
     public static func parse(array:[Any?]) -> Self {
-        return Self(tuple: Tuple.ColumnsRep.parse(array: array) as! Tuple.Wrapped)
+        return Self(tuple: Tuple(array: array).tuple)
     }
     
     public func rep() -> [ErasedRep] {
@@ -42,7 +42,7 @@ public protocol TupleEntity : EntityLike {
 }
 
 public extension TupleEntity where Self : Demo.RepRichTuple {
-    public typealias ArrayParseResult = Self.ColumnsRep.Naked
+    public typealias ArrayParseResult = Self.Wrapped
     
     public var wrapper: Self {
         return self
@@ -56,8 +56,8 @@ public extension TupleEntity where Self : Demo.RepRichTuple {
         return stripe.map(ValueRep.init)
     }
     
-    public static func parse(array:[Any?]) -> Self.ColumnsRep.Naked {
-        return Self.ColumnsRep.parse(array: array)
+    public static func parse(array:[Any?]) -> Self.Wrapped {
+        return Self(array: array).tuple
     }
 }
 

@@ -18,6 +18,7 @@ public protocol Tuple {
     associatedtype Wrapped
     
     init(tuple: Wrapped)
+    init(array: [Any?])
     
     var tuple: Wrapped {get}
     var stripe:[Any] {get}
@@ -41,6 +42,10 @@ public struct Tuple1<AI> : Tuple1Protocol {
     
     public init(_ a: A) {
         self.init(tuple: (a))
+    }
+    
+    public init(array: [Any?]) {
+        self.init(array.first! as! A)
     }
     
     public var stripe:[Any] {
@@ -68,6 +73,10 @@ public struct Tuple2<AI, BI> : Tuple2Protocol {
         self.init(tuple: (a, b))
     }
     
+    public init(array: [Any?]) {
+        self.init(array[0] as! A, array[1] as! B)
+    }
+    
     public var stripe:[Any] {
         return [tuple.0, tuple.1]
     }
@@ -84,6 +93,10 @@ public struct Tuple3<A, B, C> : Tuple {
     
     public init(_ a: A, _ b: B, _ c: C) {
         self.init(tuple: (a, b, c))
+    }
+    
+    public init(array: [Any?]) {
+        self.init(array[0] as! A, array[1] as! B, array[2] as! C)
     }
     
     public var stripe:[Any] {

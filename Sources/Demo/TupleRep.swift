@@ -20,36 +20,59 @@ public protocol ArrayParser {
     static func parse(array:[Any?]) -> ArrayParseResult
 }
 
-public protocol TupleRepProtocol : ValueRepProtocol, ArrayParser {
-    associatedtype Naked
-    typealias ArrayParseResult = Naked
-}
-
-public extension TupleRepProtocol {
-    public func render(dialect: Dialect, aliases: [String : String]) -> SQL {
-        fatalError("Can not render tuple rep")
-    }
-}
-
 public protocol RepRichTuple : Tuple {
     associatedtype ColumnsRep : TupleRepProtocol
     
-    static func columns(_ columns:ColumnsRep.Value) -> ColumnsRep
+    static func columns(_ columns:ColumnsRep.Tuple.Wrapped) -> ColumnsRep
 }
 
 extension Tuple2 : RepRichTuple {
     public typealias ColumnsRep = Tuple2Rep<TypedColumn<A>, TypedColumn<B>>
     
-    public static func columns(_ columns:ColumnsRep.Value) -> ColumnsRep {
-        return ColumnsRep(value: columns)
+    public static func columns(_ columns:ColumnsRep.Tuple.Wrapped) -> ColumnsRep {
+        return ColumnsRep(tuple: columns)
     }
 }
 
 extension Tuple3 : RepRichTuple {
     public typealias ColumnsRep = Tuple3Rep<TypedColumn<A>, TypedColumn<B>, TypedColumn<C>>
     
-    public static func columns(_ columns:ColumnsRep.Value) -> ColumnsRep {
-        return ColumnsRep(value: columns)
+    public static func columns(_ columns:ColumnsRep.Tuple.Wrapped) -> ColumnsRep {
+        return ColumnsRep(tuple: columns)
+    }
+}
+
+public protocol TupleRepProtocol : Rep {
+    associatedtype Tuple : TupleProtocol
+    associatedtype Naked
+    typealias ArrayParseResult = Naked
+    
+    var tuple:Tuple {get}
+    var wrapped:Tuple.Wrapped {get}
+}
+
+public extension TupleRepProtocol {
+    public var wrapped: Tuple.Wrapped {
+        return tuple.tuple
+    }
+    
+    public var stripe: [ErasedRep] {
+        return tuple.stripe.flatMap {$0 as? ErasedRep}.flatMap {$0.stripe}
+    }
+}
+
+//EntityLike
+/*public extension TupleRepProtocol {
+    public typealias Bind = Naked
+    
+    public func rep() -> [ErasedRep] {
+        return self.stripe
+    }
+}*/
+
+public extension TupleRepProtocol {
+    public func render(dialect: Dialect, aliases: [String : String]) -> SQL {
+        fatalError("Can not render tuple rep")
     }
 }
 
@@ -58,43 +81,27 @@ extension Tuple3 : RepRichTuple {
 public protocol Tuple2RepProtocol : TupleRepProtocol {
     associatedtype A : Rep
     associatedtype B : Rep
-    associatedtype Value = (A, B)
 }
 
 public extension Tuple2RepProtocol {
-    var tuple:(A, B) {
-        return value as! (A, B)
-    }
-}
-
-public extension Tuple2RepProtocol {
-    public var stripe: [ErasedRep] {
-        let t = tuple
-        let s:[ErasedRep] = [t.0, t.1]
-        return s.flatMap {$0.stripe}
-    }
+    public typealias Tuple = Tuple2<A, B>
 }
 
 public struct Tuple2Rep<AI : Rep, BI : Rep> : Tuple2RepProtocol {
     public typealias A = AI
     public typealias B = BI
-    public typealias Value = (A, B)
-    public typealias Naked = (A.Value, B.Value)
+    public typealias Tuple = Tuple2<A, B>
+    public typealias Value = Tuple2<A.Value, B.Value>
+    public typealias Naked = Value.Wrapped
     
-    public let value:Value
+    public let tuple: Tuple2<A, B>
     
-    public init(value:Value) {
-        self.value = value
+    public init(tuple: (A, B)) {
+        self.tuple = Tuple2<A, B>(tuple: tuple)
     }
     
     public init(_ a:A, _ b:B) {
-        self.init(value: (a, b))
-    }
-}
-
-public extension Tuple2Rep {
-    static func parse(array:[Any?]) -> Naked {
-        return (array[0]! as! A.Value, array[1]! as! B.Value)
+        self.init(tuple: (a, b))
     }
 }
 
@@ -104,49 +111,33 @@ public protocol Tuple3RepProtocol : TupleRepProtocol {
     associatedtype A : Rep
     associatedtype B : Rep
     associatedtype C : Rep
-    associatedtype Value = (A, B, C)
 }
 
 public extension Tuple3RepProtocol {
-    var tuple:(A, B, C) {
-        return value as! (A, B, C)
-    }
-}
-
-public extension Tuple3RepProtocol {
-    public var stripe: [ErasedRep] {
-        let t = tuple
-        let s:[ErasedRep] = [t.0, t.1, t.2]
-        return s.flatMap {$0.stripe}
-    }
+    public typealias Tuple = Tuple3<A, B, C>
 }
 
 public struct Tuple3Rep<AI : Rep, BI : Rep, CI : Rep> : Tuple3RepProtocol {
     public typealias A = AI
     public typealias B = BI
     public typealias C = CI
-    public typealias Value = (A, B, C)
-    public typealias Naked = (A.Value, B.Value, C.Value)
+    public typealias Tuple = Tuple3<A, B, C>
+    public typealias Value = Tuple3<A.Value, B.Value, C.Value>
+    public typealias Naked = Value.Wrapped
     
-    public let value:Value
+    public let tuple: Tuple3<A, B, C>
     
-    public init(value:Value) {
-        self.value = value
+    public init(tuple: (A, B, C)) {
+        self.tuple = Tuple3<A, B, C>(tuple: tuple)
     }
     
     public init(_ a:A, _ b:B, _ c:C) {
-        self.init(value: (a, b, c))
-    }
-}
-
-public extension Tuple3Rep {
-    static func parse(array:[Any?]) -> Naked {
-        return (array[0]! as! A.Value, array[1]! as! B.Value, array[2]! as! C.Value)
+        self.init(tuple: (a, b, c))
     }
 }
 
 ////////////////////////////////////////////////// FOUR //////////////////////////////////////////////////
-
+/*
 public protocol Tuple4RepProtocol : TupleRepProtocol {
     associatedtype A : Rep
     associatedtype B : Rep
@@ -169,11 +160,13 @@ public extension Tuple4RepProtocol {
     }
 }
 
+
 public struct Tuple4Rep<AI : Rep, BI : Rep, CI : Rep, DI : Rep> : Tuple4RepProtocol {
     public typealias A = AI
     public typealias B = BI
     public typealias C = CI
     public typealias D = DI
+    public typealias Tuple = Tuple4<A, B, C, D>
     public typealias Value = (A, B, C, D)
     public typealias Naked = (A.Value, B.Value, C.Value, D.Value)
     
@@ -301,4 +294,4 @@ public extension Tuple6Rep {
                 array[4]! as! E.Value,
                 array[5]! as! F.Value)
     }
-}
+}*/

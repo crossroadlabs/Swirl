@@ -86,7 +86,7 @@ public class TypedTable<E : EntityLike> : TableProtocol, Rep {
     
     public let all:ColumnsRep
     
-    public init(all:ColumnsRep.Value) {
+    public init(all:ColumnsRep.Tuple.Wrapped) {
         self.name = type(of: self).table
         self.all = Tuple.columns(all)
         self.columns = .list(self.all.stripe.flatMap { $0 as? Column }.map {$0.name})

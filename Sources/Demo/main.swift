@@ -149,68 +149,70 @@ public extension QueryLike {
 public extension QueryLike where Ret : Tuple2RepProtocol {
     public func map<BRet : Rep>(_ f:(Ret.A, Ret.B)->BRet) -> QueryImpl<DS, BRet> {
         return map { ret in
-            ret.tuple |> f
+            ret.wrapped |> f
         }
     }
     
     public func filter(_ f:(Ret.A, Ret.B)->Predicate) -> QueryImpl<DS, Ret> {
         return filter { ret in
-            ret.tuple |> f
+            ret.wrapped |> f
         }
     }
     
     public func map<A: Rep, B : Rep>(_ f:(Ret.A, Ret.B)->(A, B)) -> QueryImpl<DS, Tuple2Rep<A, B>> {
         return map { ret in
-            Tuple2Rep(value: ret.tuple |> f)
+            Tuple2Rep(tuple: ret.wrapped |> f)
         }
     }
     
     public func map<A: Rep, B : Rep, C : Rep>(_ f:(Ret.A, Ret.B)->(A, B, C)) -> QueryImpl<DS, Tuple3Rep<A, B, C>> {
         return map { ret in
-            Tuple3Rep(value: ret.tuple |> f)
+            Tuple3Rep(tuple: ret.wrapped |> f)
         }
     }
     
+    /*
     public func map<A: Rep, B : Rep, C : Rep, D : Rep>(_ f:(Ret.A, Ret.B)->(A, B, C, D)) -> QueryImpl<DS, Tuple4Rep<A, B, C, D>> {
         return map { ret in
             Tuple4Rep(value: ret.tuple |> f)
         }
-    }
+    }*/
 }
 
 public extension QueryLike where Ret : Tuple3RepProtocol {
     public func map<BRet : Rep>(_ f:(Ret.A, Ret.B, Ret.C)->BRet) -> QueryImpl<DS, BRet> {
         return map { ret in
-            ret.tuple |> f
+            ret.wrapped |> f
         }
     }
     
     public func filter(_ f:(Ret.A, Ret.B, Ret.C)->Predicate) -> QueryImpl<DS, Ret> {
         return filter { ret in
-            ret.tuple |> f
+            ret.wrapped |> f
         }
     }
     
     public func map<A: Rep, B : Rep>(_ f:(Ret.A, Ret.B, Ret.C)->(A, B)) -> QueryImpl<DS, Tuple2Rep<A, B>> {
         return map { ret in
-            Tuple2Rep(value: ret.tuple |> f)
+            Tuple2Rep(tuple: ret.wrapped |> f)
         }
     }
     
     public func map<A: Rep, B : Rep, C : Rep>(_ f:(Ret.A, Ret.B, Ret.C)->(A, B, C)) -> QueryImpl<DS, Tuple3Rep<A, B, C>> {
         return map { ret in
-            Tuple3Rep(value: ret.tuple |> f)
+            Tuple3Rep(tuple: ret.wrapped |> f)
         }
     }
     
+    /*
     public func map<A: Rep, B : Rep, C : Rep, D : Rep>(_ f:(Ret.A, Ret.B, Ret.C)->(A, B, C, D)) -> QueryImpl<DS, Tuple4Rep<A, B, C, D>> {
         return map { ret in
             Tuple4Rep(value: ret.tuple |> f)
         }
-    }
+    }*/
 }
 
-public extension QueryLike where Ret : Tuple4RepProtocol {
+/*public extension QueryLike where Ret : Tuple4RepProtocol {
     public func map<BRet : Rep>(_ f:(Ret.A, Ret.B, Ret.C, Ret.D)->BRet) -> QueryImpl<DS, BRet> {
         return map { ret in
             ret.tuple |> f
@@ -240,12 +242,12 @@ public extension QueryLike where Ret : Tuple4RepProtocol {
             Tuple4Rep(value: ret.tuple |> f)
         }
     }
-}
+}*/
 
 public extension QueryLike {
     public func map<A: Rep, B : Rep>(_ f:(Ret)->(A, B)) -> QueryImpl<DS, Tuple2Rep<A, B>> {
         return map { ret in
-            Tuple2Rep(value: f(ret))
+            Tuple2Rep(tuple: f(ret))
         }
     }
 }
@@ -730,7 +732,7 @@ let comments = Comments()
     for (name, comment) in join {
         print("\(name) is \(comment)")
     }
-}*/
+}
 
 comments.map { c in
     (c.id, c.comment)
@@ -741,19 +743,19 @@ comments.map { c in
     for (id, comment) in comments {
         print("'\(comment)' identified with ID: \(id)")
     }
-}
+}*/
 
-/*comments.filter { comment in
+comments.filter { comment in
     comment.id < 3 || comment.id > 5
 }.result.execute(in: swirl).onSuccess { comments in
     //every row is a tuple, types are preserved
-    /*for comment in comments {
+    for comment in comments {
         print("'\(comment.comment)' identified with ID: \(comment.id)")
-    }*/
-    for (id, comment) in comments {
-        print("'\(comment)' identified with ID: \(id)")
     }
-}*/
+//    for (id, comment) in comments {
+//        print("'\(comment)' identified with ID: \(id)")
+//    }
+}
 
 /*person.map { p in
     //
