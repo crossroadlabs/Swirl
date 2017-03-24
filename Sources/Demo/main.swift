@@ -455,16 +455,33 @@ extension Dialect {
         })
     }
     
-    func render<DS: TableProtocol, Ret: Rep>(insert row: [ErasedRep], to table:DS, ret: Ret) -> SQL {
+    func render(values row: [ErasedRep], aliases: [String: String]) -> SQL {
+        return "(" + row.map {($0, aliases)}.map(render).joined(separator: ", ") + ")"
+    }
+    
+    func render(values rows: [[ErasedRep]], aliases: [String: String]) -> SQL {
+        return rows.map {($0, aliases)}.map(render).joined(separator: ", \n\t")
+    }
+    
+    func render<DS: TableProtocol, Ret: Rep>(insert vsql: SQL, to table:DS, ret: Ret) -> SQL {
         //yes aliases must be empty
         let tsql = table.render(dialect: self, aliases: [:])
         
         let phony = phonyAliases(dataset: table)
         
         let csql = render(columns: ret, aliases: phony)
-        let vsql = row.map {($0, phony)}.map(render).joined(separator: ", ")
         
-        return "INSERT INTO " + tsql + " (" + csql + ") VALUES(" + vsql + ")"
+        return "INSERT INTO " + tsql + " (" + csql + ") VALUES \n\t" + vsql
+    }
+    
+    func render<DS: TableProtocol, Ret: Rep>(insert row: [ErasedRep], to table:DS, ret: Ret) -> SQL {
+        let vsql = render(values: row, aliases: [:])
+        return render(insert: vsql, to: table, ret: ret)
+    }
+    
+    func render<DS: TableProtocol, Ret: Rep>(insert rows: [[ErasedRep]], to table:DS, ret: Ret) -> SQL {
+        let vsql = render(values: rows, aliases: [:])
+        return render(insert: vsql, to: table, ret: ret)
     }
     
     func render<DS: Dataset, Ret : Rep>(dataset:DS, ret: Ret, filter:Predicate, limit:Limit?) -> SQL {
@@ -773,6 +790,14 @@ swirl.execute([comments.map {($0.personId, $0.comment)} += (5, "WTF1"),
                comments.map {($0.personId, $0.comment)} += (5, "WTF"),
                comments.map {($0.personId, $0.comment)} += (5, "WTF3")]).onSuccess { ressult in
     print("Inserted shit:", ressult)
+}
+
+swirl.execute(comments.map {($0.personId, $0.comment)} += [(5, "WTF1"),
+                                                           (5, "WTF"),
+                                                           (5, "WTF3")]).onSuccess { ressult in
+                print("Inserted shit:", ressult)
+}.onFailure { e in
+    print(e)
 }
 
 /*swirl.execute(operation: comments += Comment(id: 1257, comment: "Test222")).onSuccess { res in

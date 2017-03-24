@@ -99,8 +99,22 @@ public extension QueryLike where Ret.Value : EntityLike, DS : TableProtocol {
         }
     }
     
+    public func insert(items: [Ret.Value.Bind]) -> SwirlOperation<Void> {
+        let insert: Renderlet = self.query.insert(items: items)
+        
+        return SwirlOperation { swirl in
+            swirl.execute(renderlet: insert).map {_ in ()}
+        }
+    }
+    
     public static func +=(q:Self, item: Ret.Value.Bind) -> SwirlOperation<Void> {
         return q.insert(item: item)
+    }
+    
+    //TODO: implement ++= operator
+    //TODO: move all operators to Boilerplate
+    public static func +=(q:Self, items: [Ret.Value.Bind]) -> SwirlOperation<Void> {
+        return q.insert(items: items)
     }
 }
 
@@ -119,8 +133,17 @@ extension QueryLike {
 extension QueryLike where Ret.Value : EntityLike, DS : TableProtocol {
     fileprivate func insert(item: Ret.Value.Bind) -> Renderlet {
         let q = self.query
+        let rep = Ret.Value.unbind(bound: item).rep()
         return { dialect in
-            dialect.render(insert: Ret.Value.unbind(bound: item).rep(), to: q.dataset, ret: q.ret)
+            dialect.render(insert: rep, to: q.dataset, ret: q.ret)
+        }
+    }
+    
+    fileprivate func insert(items: [Ret.Value.Bind]) -> Renderlet {
+        let q = self.query
+        let reps = items.map(Ret.Value.unbind).map{$0.rep()}
+        return { dialect in
+            dialect.render(insert: reps, to: q.dataset, ret: q.ret)
         }
     }
 }
