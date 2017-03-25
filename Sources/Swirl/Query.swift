@@ -61,6 +61,13 @@ extension QueryLike where Ret.Value : EntityLike, DS : Table {
             dialect.render(update: rep, into: q.dataset, ret: q.ret, matching: q.predicate)
         }
     }
+    
+    var deletelet: Renderlet {
+        let q = self.query
+        return { dialect in
+            dialect.render(delete: q.dataset, matching: q.predicate)
+        }
+    }
 }
 
 //Bound Query

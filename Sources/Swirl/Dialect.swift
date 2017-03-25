@@ -28,4 +28,7 @@ public protocol Dialect {
     
     //update
     func render<DS: Table, Ret: Rep>(update values: [ErasedRep], into table:DS, ret: Ret, matching: Predicate) -> SQL
+    
+    //delete
+    func render<DS: Table>(delete table:DS, matching: Predicate) -> SQL
 }

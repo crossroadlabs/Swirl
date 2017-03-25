@@ -173,7 +173,13 @@ let comments = Comments()
     print("Inserted shit:", ressult)
 }*/
 
-person.filter { p in
+comments.filter { c in
+    c.comment == "WTF"
+}.delete.execute(in: swirl).onComplete { res in
+    print(res)
+}
+
+/*person.filter { p in
     p["id"] == 2
 }.map { p in
     (p["firstname"].bind(String.self), p["lastname"].bind(String.self))
@@ -184,7 +190,7 @@ person.filter { p in
     }
 }.onFailure { e in
     print("EE", e)
-}
+}*/
 
 /*person.map { p in
     (p["id"].bind(Int.self), p["firstname"].bind(String.self), p["lastname"].bind(String.self))

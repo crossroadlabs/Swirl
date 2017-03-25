@@ -144,6 +144,13 @@ public extension QueryLike where Ret.Value : EntityLike, DS : Table {
         }
     }
     
+    public var delete: SwirlOperation<Int> {
+        let renderlet: Renderlet = self.deletelet
+        return SwirlOperation { swirl in
+            Self.count(from: swirl.execute(renderlet: renderlet), swirl: swirl)
+        }
+    }
+    
     public static func +=(q:Self, item: Ret.Value.Bind) -> SwirlOperation<Int> {
         return q.insert(item: item)
     }

@@ -29,6 +29,29 @@ public class SQLiteDriver : SyncSwirlDriver {
 public class SQLiteDialect {
 }
 
+private extension Sequence where Iterator.Element == Any? {
+    var fixed: [Any?] {
+        //TODO: get the fuck this out of here and move mapping to somethere (RDBC?)
+        return self.map { param -> Any? in
+            param.map { value in
+                switch value {
+                //SQLITE doesn't support boolean
+                case let b as Bool:
+                    return b ? 1 : 0
+                default:
+                    return value
+                }
+            }
+        }
+    }
+}
+
+private extension SQL {
+    var fixed: SQL {
+        return SQL(query: query, parameters: parameters.fixed)
+    }
+}
+
 //front API
 extension SQLiteDialect : Dialect {
     public var proto: String {
@@ -51,23 +74,9 @@ extension SQLiteDialect : Dialect {
         let fsql = filter.render(renderer: self, aliases: aliases).map {"WHERE " + $0}
         let lsql = limit.map(render)
         
-        let sql = [ssql, fsql, lsql].flatMap {$0}.reduce(base) { z, a in
+        return [ssql, fsql, lsql].flatMap {$0}.reduce(base) { z, a in
             z + " " + a
-        }
-        
-        let paramsFixed = sql.parameters.map { param -> Any? in
-            param.map { value in
-                switch value {
-                //SQLITE doesn't support boolean
-                case let b as Bool:
-                    return b ? 1 : 0
-                default:
-                    return value
-                }
-            }
-        }
-        
-        return SQL(query: sql.query, parameters: paramsFixed)
+        }.fixed
     }
     
     public func render<DS: Table, Ret: Rep>(insert row: [ErasedRep], into table:DS, ret: Ret) -> SQL {
@@ -92,24 +101,21 @@ extension SQLiteDialect : Dialect {
         let cvsql = "SET " + cols.zipWith(other: vals).map { $0.0 + " = " + $0.1 }.joined(separator: ", ")
         let fsql = filter.render(renderer: self, aliases: phony).map {"WHERE " + $0}
         
-        let sql = [tsql, cvsql, fsql].flatMap {$0}.reduce(base) { z, a in
+        return [tsql, cvsql, fsql].flatMap {$0}.reduce(base) { z, a in
             z + " " + a
-        }
+        }.fixed
+    }
+    
+    public func render<DS: Table>(delete table:DS, matching filter: Predicate) -> SQL {
+        let phony = phonyAliases(dataset: table)
         
-        //TODO: get the fuck this out of here and move mapping to somethere (RDBC?)
-        let paramsFixed = sql.parameters.map { param -> Any? in
-            param.map { value in
-                switch value {
-                //SQLITE doesn't support boolean
-                case let b as Bool:
-                    return b ? 1 : 0
-                default:
-                    return value
-                }
-            }
-        }
+        let base = SQL(query: "DELETE", parameters: [])
+        let tsql = "FROM " + table.render(renderer: self, aliases: [:])
+        let fsql = filter.render(renderer: self, aliases: phony).map {"WHERE " + $0}
         
-        return SQL(query: sql.query, parameters: paramsFixed)
+        return [tsql, fsql].flatMap {$0}.reduce(base) { z, a in
+            z + " " + a
+        }.fixed
     }
 }
 
