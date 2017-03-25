@@ -17,10 +17,10 @@
 import Foundation
 
 public struct SQL {
-    let query:String
-    let parameters:[Any?]
+    public let query:String
+    public let parameters:[Any?]
     
-    init(query:String, parameters:[Any?]) {
+    public init(query:String, parameters:[Any?]) {
         self.query = query
         self.parameters = parameters
     }

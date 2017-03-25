@@ -69,7 +69,7 @@ public extension TableProtocol {
     }
 }
 
-public class TypedTable<E : EntityLike> : TableProtocol, Rep {
+open class TypedTable<E : EntityLike> : TableProtocol, Rep {
     public typealias Entity = E
     public typealias Tuple = Entity.Tuple
     public typealias ColumnsRep = Tuple.ColumnsRep
@@ -90,7 +90,7 @@ public class TypedTable<E : EntityLike> : TableProtocol, Rep {
         return all.stripe
     }
     
-    public class var table: String {
+    open class var table: String {
         fatalError()
     }
 }

@@ -14,10 +14,10 @@
 //limitations under the License.
 //===----------------------------------------------------------------------===//
 
-
-import Boilerplate
 import ExecutionContext
-import Future
+
+import Swirl
+import SwirlSQLite
 
 /*public extension Query where DS : JoinProtocol, DS.Left : Table {
     public func map(_ f: (DS.Left, DS.Right)->[Column]) -> QueryImpl<Join<DS.Left, DS.Right>> {
@@ -47,8 +47,8 @@ import Future
     }
 }*/
 
-let t = ErasedTable(name: "lala")
-let c = ErasedColumn(name: "qwe", in: t)
+//let t = ErasedTable(name: "lala")
+//let c = ErasedColumn(name: "qwe", in: t)
 
 //let p:Predicate = 1 <= 2 || 2 > c//(c == "b" && "b" != c || c != c && 1 == c) != (c == "a")
 //print(p)
@@ -144,7 +144,7 @@ class Comments : TypedTable<Comment>, QueryLike {
 }
 let comments = Comments()
 
-/*comments.zip(with: person) { c, p in
+comments.zip(with: person) { c, p in
     c.personId == p["id"].bind(Int.self)
 }.filter { c, p in
     c.id > 3
@@ -165,9 +165,9 @@ comments.map { c in
     for (id, comment) in comments {
         print("'\(comment)' identified with ID: \(id)")
     }
-}*/
+}
 
-/*[comments.map {($0.personId, $0.comment)} += (5, "WTF1"),
+[comments.map {($0.personId, $0.comment)} += (5, "WTF1"),
  comments.map {($0.personId, $0.comment)} += (5, "WTF"),
  comments.map {($0.personId, $0.comment)} += (5, "WTF3")].execute(in: swirl).onSuccess { ressult in
     print("Inserted shit:", ressult)
@@ -179,7 +179,7 @@ swirl.execute(comments.map {($0.personId, $0.comment)} += [(5, "WTF1"),
                 print("Inserted shit:", ressult)
 }.onFailure { e in
     print(e)
-}*/
+}
 
 /*swirl.execute(operation: comments += Comment(id: 1257, comment: "Test222")).onSuccess { res in
     print("Inserted shit:", res)

@@ -47,7 +47,7 @@ public protocol TupleEntity : EntityLike, Tuple {
     associatedtype Bind : Wrapped
 }
 
-public extension TupleEntity where Self : Demo.RepRichTuple, Bind == Wrapped {
+public extension TupleEntity where Self : RepRichTuple, Bind == Wrapped {
     public typealias ArrayParseResult = Self.Wrapped
     
     public var wrapper: Self {

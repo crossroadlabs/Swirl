@@ -19,7 +19,6 @@ import Boilerplate
 import Future
 
 import RDBC
-import RDBCSQLite
 
 public enum SwirlError : Error {
     case noDialect
@@ -40,7 +39,7 @@ public class SwirlDriver {
     }
 }
 
-public class SyncSwirlDriver {
+open class SyncSwirlDriver {
     public let driver: SyncDriver
     public let dialect: Dialect
     
@@ -142,11 +141,5 @@ public extension SwirlManager {
         let dialect = try driver(url: url, params: params).dialect
         let pool = _rdbc.pool(url: url, params: params)
         return try Swirl(connection: pool, dialect: dialect)
-    }
-}
-
-public class SQLiteDriver : SyncSwirlDriver {
-    public init() {
-        try! super.init(driver: RDBCSQLite.SQLiteDriver(), dialect: SQLiteDialect())
     }
 }

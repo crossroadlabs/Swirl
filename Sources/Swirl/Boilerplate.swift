@@ -105,7 +105,7 @@ public struct Tuple3<A, B, C> : Tuple {
 }
 
 public protocol CaseProtocol {
-    associatedtype Tuple : Demo.Tuple
+    associatedtype Tuple : TupleProtocol
     
     init(tuple: Tuple.Wrapped)
     

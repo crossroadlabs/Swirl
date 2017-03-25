@@ -16,6 +16,16 @@
 
 import Boilerplate
 
+import Swirl
+
+import RDBCSQLite
+
+public class SQLiteDriver : SyncSwirlDriver {
+    public init() {
+        try! super.init(driver: RDBCSQLite.SQLiteDriver(), dialect: SQLiteDialect())
+    }
+}
+
 public class SQLiteDialect {
 }
 
