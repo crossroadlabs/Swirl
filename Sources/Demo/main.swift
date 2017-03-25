@@ -149,7 +149,7 @@ comments.zip(with: person) { c, p in
 }.filter { c, p in
     c.id > 3
 }.map { c, p in
-    (p["firstname"].bind(String.self), c.comment)
+    (p["firstname"].uppercased(), c.comment.lowercased())
 }.result.execute(in: swirl).onSuccess { join in
     for (name, comment) in join {
         print("\(name) is \(comment)")
