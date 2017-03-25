@@ -13,7 +13,7 @@
 //See the License for the specific language governing permissions and
 //limitations under the License.
 //===----------------------------------------------------------------------===//
-
+/*
 import CLibpq
 
 public enum PostgresError : Error {
@@ -51,4 +51,4 @@ public class PostgresConnection : SyncConnection {
         PQsetSingleRowMode(_connection)
         return nil
     }
-}
+}*/
