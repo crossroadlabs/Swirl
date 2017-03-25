@@ -26,6 +26,20 @@ public struct SQL {
     }
 }
 
+extension SQL: ExpressibleByStringLiteral {
+    public init(stringLiteral value: String) {
+        self.init(query: value, parameters: [])
+    }
+    
+    public init(unicodeScalarLiteral value: String) {
+        self.init(stringLiteral: value)
+    }
+    
+    public init(extendedGraphemeClusterLiteral value: String) {
+        self.init(stringLiteral: value)
+    }
+}
+
 public func +(a:SQL, b:SQL) -> SQL {
     return SQL(query: a.query + b.query, parameters: a.parameters + b.parameters)
 }
