@@ -98,10 +98,6 @@ public class SwirlManager {
     }
 }
 
-public protocol Dialect {
-    var proto:String {get}
-}
-
 public typealias Renderlet = (Dialect) -> SQL
 
 public class Swirl {
@@ -146,12 +142,6 @@ public extension SwirlManager {
         let dialect = try driver(url: url, params: params).dialect
         let pool = _rdbc.pool(url: url, params: params)
         return try Swirl(connection: pool, dialect: dialect)
-    }
-}
-
-public extension Query {
-    func render(dialect:Dialect) -> SQL {
-        return dialect.render(dataset: dataset, ret: ret, filter: self.predicate, limit: limit)
     }
 }
 

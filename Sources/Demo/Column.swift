@@ -54,10 +54,3 @@ public struct TypedColumn<T> : Column, Rep {
         self.table = table
     }
 }
-
-public extension Column {
-    public func render(dialect: Dialect, aliases: [String : String]) -> SQL {
-        let table = aliases[self.table.name] ?? self.table.name
-        return dialect.render(column: name, table: table, escape: true)
-    }
-}

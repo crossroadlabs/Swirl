@@ -26,12 +26,6 @@ public extension Table {
     }
 }
 
-public extension Table {
-    public func render(dialect:Dialect, aliases: [String: String]) -> SQL {
-        return dialect.render(table: self, aliases: aliases)
-    }
-}
-
 public struct ErasedTable : Table, QueryLike, Rep {
     public typealias DS = ErasedTable
     public typealias Ret = ErasedTable

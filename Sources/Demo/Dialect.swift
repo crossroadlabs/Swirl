@@ -1,4 +1,4 @@
-//===--- Dataset.swift ------------------------------------------------------===//
+//===--- Dialect.swift ------------------------------------------------------===//
 //Copyright (c) 2017 Crossroad Labs s.r.o.
 //
 //Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +14,12 @@
 //limitations under the License.
 //===----------------------------------------------------------------------===//
 
-public protocol Dataset : Renderable {
-    var tables:[Table] {get}
+public protocol Dialect {
+    var proto:String {get}
+    
+    func render<DS: Dataset, Ret : Rep>(select ret: Ret, from dataset:DS, filter:Predicate, limit:Limit?) -> SQL
+    
+    //inserts
+    func render<DS: TableProtocol, Ret: Rep>(insert row: [ErasedRep], into table:DS, ret: Ret) -> SQL
+    func render<DS: TableProtocol, Ret: Rep>(insert rows: [[ErasedRep]], into table:DS, ret: Ret) -> SQL
 }

@@ -77,7 +77,7 @@ public extension Sequence where Iterator.Element : SwirlOperationProtocol {
 
 private extension QueryLike where Ret.Value : EntityLike {
     func select(parse:@escaping ([Any?])->Ret.Value.Bind) -> SwirlOperation<[Ret.Value.Bind]> {
-        let select = query.select
+        let select = self.select
         return SwirlOperation { swirl in
             swirl.execute(renderlet: select).flatMap{$0}.flatMap { results in
                 results.all()
@@ -97,13 +97,13 @@ private extension QueryLike where Ret.Value : EntityLike {
 
 public extension QueryLike where Ret.Value : EntityLike {
     public var result:SwirlOperation<[Ret.Value.Bind]> {
-        return self.query.select(parse: Ret.Value.parse)
+        return self.select(parse: Ret.Value.parse)
     }
 }
 
 public extension QueryLike where Ret.Value : EntityLike, DS : TableProtocol {
     public func insert(item: Ret.Value.Bind) -> SwirlOperation<Void> {
-        let insert: Renderlet = self.query.insert(item: item)
+        let insert: Renderlet = self.insert(item: item)
         
         return SwirlOperation { swirl in
             swirl.execute(renderlet: insert).map {_ in ()}
@@ -111,7 +111,7 @@ public extension QueryLike where Ret.Value : EntityLike, DS : TableProtocol {
     }
     
     public func insert(items: [Ret.Value.Bind]) -> SwirlOperation<Void> {
-        let insert: Renderlet = self.query.insert(items: items)
+        let insert: Renderlet = self.insert(items: items)
         
         return SwirlOperation { swirl in
             swirl.execute(renderlet: insert).map {_ in ()}
@@ -126,35 +126,5 @@ public extension QueryLike where Ret.Value : EntityLike, DS : TableProtocol {
     //TODO: move all operators to Boilerplate
     public static func +=(q:Self, items: [Ret.Value.Bind]) -> SwirlOperation<Void> {
         return q.insert(items: items)
-    }
-}
-
-extension QueryLike {
-    var query:QueryImpl<DS, Ret> {
-        return self.map {$0}
-    }
-    
-    var select: Renderlet {
-        return { dialect in
-            self.query.render(dialect: dialect)
-        }
-    }
-}
-
-extension QueryLike where Ret.Value : EntityLike, DS : TableProtocol {
-    fileprivate func insert(item: Ret.Value.Bind) -> Renderlet {
-        let q = self.query
-        let rep = Ret.Value.unbind(bound: item).rep()
-        return { dialect in
-            dialect.render(insert: rep, to: q.dataset, ret: q.ret)
-        }
-    }
-    
-    fileprivate func insert(items: [Ret.Value.Bind]) -> Renderlet {
-        let q = self.query
-        let reps = items.map(Ret.Value.unbind).map{$0.rep()}
-        return { dialect in
-            dialect.render(insert: reps, to: q.dataset, ret: q.ret)
-        }
     }
 }

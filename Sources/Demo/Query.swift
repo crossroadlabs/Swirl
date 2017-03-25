@@ -24,6 +24,37 @@ public protocol QueryLike {
     func filter(_ f:(Ret)->Predicate) -> QueryImpl<DS, Ret>
 }
 
+private extension QueryLike {
+    var query:QueryImpl<DS, Ret> {
+        return self.map {$0}
+    }
+}
+
+////////////////////////////////////////////////////// RENDERLETS //////////////////////////////////////////////////////
+extension QueryLike {
+    var select: Renderlet {
+        return self.query.render
+    }
+}
+
+extension QueryLike where Ret.Value : EntityLike, DS : TableProtocol {
+    func insert(item: Ret.Value.Bind) -> Renderlet {
+        let q = self.query
+        let rep = Ret.Value.unbind(bound: item).rep()
+        return { dialect in
+            dialect.render(insert: rep, into: q.dataset, ret: q.ret)
+        }
+    }
+    
+    func insert(items: [Ret.Value.Bind]) -> Renderlet {
+        let q = self.query
+        let reps = items.map(Ret.Value.unbind).map{$0.rep()}
+        return { dialect in
+            dialect.render(insert: reps, into: q.dataset, ret: q.ret)
+        }
+    }
+}
+
 //Bound Query
 public protocol Query : QueryLike {
     var dataset:DS {get}
@@ -36,6 +67,12 @@ public protocol Query : QueryLike {
 public extension Query {
     public func map<BRet : Rep>(_ f:(Ret)->BRet) -> QueryImpl<DS, BRet> {
         return QueryImpl(dataset: dataset, ret: f(ret), predicate: predicate, order: order, limit: limit)
+    }
+}
+
+private extension Query {
+    func render(dialect:Dialect) -> SQL {
+        return dialect.render(select: ret, from: dataset, filter: self.predicate, limit: limit)
     }
 }
 

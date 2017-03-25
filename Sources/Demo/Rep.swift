@@ -14,10 +14,8 @@
 //limitations under the License.
 //===----------------------------------------------------------------------===//
 
-public protocol ErasedRep {
+public protocol ErasedRep : Renderable {
     var stripe: [ErasedRep] {get}
-    
-    func render(dialect:Dialect, aliases:[String: String]) -> SQL
 }
 
 public extension ErasedRep {
@@ -45,11 +43,5 @@ public struct ValueRep<T> : ValueRepProtocol {
     
     public init<VR : ValueRepProtocol>(rep:VR) where VR.Value == Value {
         self.init(value: rep.value)
-    }
-}
-
-public extension ValueRep {
-    public func render(dialect: Dialect, aliases: [String : String]) -> SQL {
-        return dialect.render(value: value)
     }
 }

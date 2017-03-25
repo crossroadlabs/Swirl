@@ -50,12 +50,6 @@ public extension JoinProtocol {
 }
 
 public extension JoinProtocol {
-    public func render(dialect:Dialect, aliases:[String: String]) -> SQL {
-        return dialect.render(join: self, aliases: aliases)
-    }
-}
-
-public extension JoinProtocol {
     public var datasets:(Left, Right) {
         switch join {
         case .cross(left: let left, right: let right):

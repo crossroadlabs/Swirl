@@ -70,12 +70,6 @@ public extension TupleRepProtocol {
     }
 }*/
 
-public extension TupleRepProtocol {
-    public func render(dialect: Dialect, aliases: [String : String]) -> SQL {
-        fatalError("Can not render tuple rep")
-    }
-}
-
 ////////////////////////////////////////////////// TWO //////////////////////////////////////////////////
 
 public protocol Tuple2RepProtocol : TupleRepProtocol {
