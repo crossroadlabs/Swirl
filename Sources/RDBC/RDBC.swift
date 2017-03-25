@@ -52,8 +52,18 @@ public extension ResultSet {
         }
     }
     
-    public func all() -> Future<[Row]> {
+    public func rows() -> Future<[Row]> {
         return accumulate(rows: [Row]())
+    }
+    
+    public func dictionaries() -> Future<[[String: Any?]]> {
+        return columns.flatMap { cols in
+            self.rows().map { rows in
+                rows.map { row in
+                    cols.zipWith(other: row).map(tuple).dictionary
+                }
+            }
+        }
     }
 }
 

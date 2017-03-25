@@ -124,6 +124,10 @@ public class Swirl {
         return execute(sql: render(renderlet: renderlet))
     }
     
+    func execute<R>(_ f:(Dialect)->R) -> R {
+        return f(_dialect)
+    }
+    
     var sequencial: Future<Swirl> {
         let pool = _connection as? ConnectionPool
         let connection = pool.map {$0.connection()} ?? Future(value: (_connection, {}))

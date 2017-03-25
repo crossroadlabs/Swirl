@@ -80,7 +80,7 @@ private extension QueryLike where Ret.Value : EntityLike {
         let select = self.select
         return SwirlOperation { swirl in
             swirl.execute(renderlet: select).flatMap{$0}.flatMap { results in
-                results.all()
+                results.rows()
             }.map { /*(cols,*/ rows/*)*/ in
                 rows.map(parse)
             }.recover { (e:FutureError) in
@@ -102,29 +102,42 @@ public extension QueryLike where Ret.Value : EntityLike {
 }
 
 public extension QueryLike where Ret.Value : EntityLike, DS : TableProtocol {
-    public func insert(item: Ret.Value.Bind) -> SwirlOperation<Void> {
-        let insert: Renderlet = self.insert(item: item)
-        
+    private func insert(renderlet: @escaping Renderlet) -> SwirlOperation<Int> {
         return SwirlOperation { swirl in
-            swirl.execute(renderlet: insert).map {_ in ()}
+            swirl.execute(renderlet: renderlet).flatMap {$0}.flatMap { rs in
+                rs.dictionaries()
+            }.flatMap { dictionaries in
+                dictionaries.first.flatMap { row in
+                    swirl.execute { dialect in
+                        row[dialect.affected].flatMap {$0 as? Int}
+                    }
+                }
+            }.recover { (e:FutureError) in
+                switch e {
+                    case .mappedNil:
+                        return 0
+                    default:
+                        throw e
+                }
+            }
         }
     }
     
-    public func insert(items: [Ret.Value.Bind]) -> SwirlOperation<Void> {
-        let insert: Renderlet = self.insert(items: items)
-        
-        return SwirlOperation { swirl in
-            swirl.execute(renderlet: insert).map {_ in ()}
-        }
+    public func insert(item: Ret.Value.Bind) -> SwirlOperation<Int> {
+        return insert(renderlet: self.insert(item: item))
     }
     
-    public static func +=(q:Self, item: Ret.Value.Bind) -> SwirlOperation<Void> {
+    public func insert(items: [Ret.Value.Bind]) -> SwirlOperation<Int> {
+        return insert(renderlet: self.insert(items: items))
+    }
+    
+    public static func +=(q:Self, item: Ret.Value.Bind) -> SwirlOperation<Int> {
         return q.insert(item: item)
     }
     
     //TODO: implement ++= operator
     //TODO: move all operators to Boilerplate
-    public static func +=(q:Self, items: [Ret.Value.Bind]) -> SwirlOperation<Void> {
+    public static func +=(q:Self, items: [Ret.Value.Bind]) -> SwirlOperation<Int> {
         return q.insert(items: items)
     }
 }

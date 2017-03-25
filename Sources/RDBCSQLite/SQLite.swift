@@ -138,6 +138,40 @@ public class SQLiteDriver : SyncDriver {
     }
 }
 
+private class StaticResultSet : SyncResultSet {
+    private static let _initial: Int = -1
+    
+    private let _cols: [String]
+    private let _rows: [[Any?]]
+    private var _current: Int = StaticResultSet._initial
+    
+    init(cols: [String], rows: [[Any?]]) {
+        _cols = cols
+        _rows = rows
+    }
+    
+    func columnCount() throws -> Int {
+        return _cols.count
+    }
+    
+    func columns() throws -> [String] {
+        return _cols
+    }
+    
+    func reset() throws {
+        _current = StaticResultSet._initial
+    }
+    
+    func next() throws -> [Any?]? {
+        _current = _current.advanced(by: 1)
+        return _current < _rows.count ? _rows[_current] : nil
+    }
+    
+    static func count(_ count: Int) -> StaticResultSet {
+        return StaticResultSet(cols: ["count"], rows: [[count]])
+    }
+}
+
 public class SQLiteConnection : Resource<OpaquePointer>, SyncConnection, SQLiteObject {
     internal init(location:String) throws {
         var _connection:OpaquePointer? = nil
@@ -158,13 +192,27 @@ public class SQLiteConnection : Resource<OpaquePointer>, SyncConnection, SQLiteO
         try call {sqlite3_busy_timeout($0, millis)}
     }
     
+    private var changes: Int {
+        return Int(with(sqlite3_changes))
+    }
+    
     public func execute(query: String, parameters: [Any?], named: [String:Any?]) throws -> SyncResultSet? {
-        let statement = try SQLiteStatement(connection: self, query: query)
+        let q = query.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        let statement = try SQLiteStatement(connection: self, query: q)
         
         try statement.bind(parameters: parameters)
         try statement.bind(named: named)
         
-        return try statement.step() ? SQLiteResultSet(statement: statement) : nil
+        let result:SyncResultSet? = try statement.step() ? SQLiteResultSet(statement: statement) : nil
+        
+        return result.or {
+            if !(q.hasPrefix("INSERT") || q.hasPrefix("UPDATE") || q.hasPrefix("DELETE")) {
+                return nil
+            }
+            
+            let count = changes
+            return StaticResultSet.count(count)
+        }
     }
 }
 

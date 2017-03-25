@@ -31,8 +31,12 @@ public class SQLiteDialect {
 
 //front API
 extension SQLiteDialect : Dialect {
-    public var proto:String {
+    public var proto: String {
         return "sqlite"
+    }
+    
+    public var affected: String {
+        return "count"
     }
     
     //front API

@@ -144,7 +144,7 @@ class Comments : TypedTable<Comment>, QueryLike {
 }
 let comments = Comments()
 
-comments.zip(with: person) { c, p in
+/*comments.zip(with: person) { c, p in
     c.personId == p["id"].bind(Int.self)
 }.filter { c, p in
     c.id > 3
@@ -154,9 +154,9 @@ comments.zip(with: person) { c, p in
     for (name, comment) in join {
         print("\(name) is \(comment)")
     }
-}
+}*/
 
-comments.map { c in
+/*comments.map { c in
     (c.id, c.comment)
 }.filter { id, _ in
     id < 3 || id > 5
@@ -165,7 +165,7 @@ comments.map { c in
     for (id, comment) in comments {
         print("'\(comment)' identified with ID: \(id)")
     }
-}
+}*/
 
 [comments.map {($0.personId, $0.comment)} += (5, "WTF1"),
  comments.map {($0.personId, $0.comment)} += (5, "WTF"),
@@ -173,13 +173,13 @@ comments.map { c in
     print("Inserted shit:", ressult)
 }
 
-swirl.execute(comments.map {($0.personId, $0.comment)} += [(5, "WTF1"),
+/*swirl.execute(comments.map {($0.personId, $0.comment)} += [(5, "WTF1"),
                                                            (5, "WTF"),
                                                            (5, "WTF3")]).onSuccess { ressult in
                 print("Inserted shit:", ressult)
 }.onFailure { e in
     print(e)
-}
+}*/
 
 /*swirl.execute(operation: comments += Comment(id: 1257, comment: "Test222")).onSuccess { res in
     print("Inserted shit:", res)
@@ -205,7 +205,7 @@ swirl.execute(comments.map {($0.personId, $0.comment)} += [(5, "WTF1"),
 //    }
 }*/
 
-person.map { p in
+/*person.map { p in
     //
     (p.c("id", type: Int.self), p["firstname"].bind(String.self))
 }.filter { id, name in
@@ -219,7 +219,7 @@ person.map { p in
     }
 }.onFailure { e in
     print("EE", e)
-}
+}*/
 
 /*person.map { p in
     (p.c("id", type: Int.self), p["firstname"].bind(String.self))

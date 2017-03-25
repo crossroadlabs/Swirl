@@ -15,7 +15,10 @@
 //===----------------------------------------------------------------------===//
 
 public protocol Dialect {
-    var proto:String {get}
+    var proto: String {get}
+    
+    //affected rows count key
+    var affected: String {get}
     
     func render<DS: Dataset, Ret : Rep>(select ret: Ret, from dataset:DS, filter:Predicate, limit:Limit?) -> SQL
     
