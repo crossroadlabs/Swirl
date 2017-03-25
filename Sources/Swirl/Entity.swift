@@ -31,7 +31,7 @@ public extension Entity {
     public typealias Bind = Self
     
     public static func parse(array: [Any?]) -> Self {
-        return Self(tuple: Tuple(array: array).tuple)
+        return Self(tuple: Tuple(array: array))
     }
     
     public static func unbind(bound: Self) -> Self {
@@ -39,7 +39,7 @@ public extension Entity {
     }
     
     public func rep() -> [ErasedRep] {
-        return Self.Tuple(tuple: tuple).stripe.map(ValueRep.init)
+        return tuple.stripe.map(ValueRep.init)
     }
 }
 

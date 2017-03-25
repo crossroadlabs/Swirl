@@ -111,3 +111,13 @@ public protocol CaseProtocol {
     
     var tuple: Self.Tuple.Wrapped {get}
 }
+
+public extension CaseProtocol {
+    public init(tuple: Tuple) {
+        self.init(tuple: tuple.tuple)
+    }
+    
+    public var tuple: Self.Tuple {
+        return Self.Tuple(tuple: tuple)
+    }
+}
