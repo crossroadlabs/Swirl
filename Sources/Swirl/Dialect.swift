@@ -23,6 +23,9 @@ public protocol Dialect {
     func render<DS: Dataset, Ret : Rep>(select ret: Ret, from dataset:DS, filter:Predicate, limit:Limit?) -> SQL
     
     //inserts
-    func render<DS: TableProtocol, Ret: Rep>(insert row: [ErasedRep], into table:DS, ret: Ret) -> SQL
-    func render<DS: TableProtocol, Ret: Rep>(insert rows: [[ErasedRep]], into table:DS, ret: Ret) -> SQL
+    func render<DS: Table, Ret: Rep>(insert row: [ErasedRep], into table:DS, ret: Ret) -> SQL
+    func render<DS: Table, Ret: Rep>(insert rows: [[ErasedRep]], into table:DS, ret: Ret) -> SQL
+    
+    //update
+    func render<DS: Table, Ret: Rep>(update values: [ErasedRep], into table:DS, ret: Ret, matching: Predicate) -> SQL
 }

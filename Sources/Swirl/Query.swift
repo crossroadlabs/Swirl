@@ -37,7 +37,7 @@ extension QueryLike {
     }
 }
 
-extension QueryLike where Ret.Value : EntityLike, DS : TableProtocol {
+extension QueryLike where Ret.Value : EntityLike, DS : Table {
     func insert(item: Ret.Value.Bind) -> Renderlet {
         let q = self.query
         let rep = Ret.Value.unbind(bound: item).rep()
@@ -51,6 +51,14 @@ extension QueryLike where Ret.Value : EntityLike, DS : TableProtocol {
         let reps = items.map(Ret.Value.unbind).map{$0.rep()}
         return { dialect in
             dialect.render(insert: reps, into: q.dataset, ret: q.ret)
+        }
+    }
+    
+    func update(with values: Ret.Value.Bind) -> Renderlet {
+        let q = self.query
+        let rep = Ret.Value.unbind(bound: values).rep()
+        return { dialect in
+            dialect.render(update: rep, into: q.dataset, ret: q.ret, matching: q.predicate)
         }
     }
 }
@@ -135,6 +143,14 @@ public extension QueryLike {
     public func map<A: Rep, B : Rep>(_ f:(Ret)->(A, B)) -> QueryImpl<DS, Tuple2Rep<A, B>> {
         return map { ret in
             Tuple2Rep(tuple: f(ret))
+        }
+    }
+}
+
+public extension QueryLike {
+    public func map<A: Rep, B : Rep, C : Rep>(_ f:(Ret)->(A, B, C)) -> QueryImpl<DS, Tuple3Rep<A, B, C>> {
+        return map { ret in
+            Tuple3Rep(tuple: f(ret))
         }
     }
 }

@@ -17,6 +17,8 @@
 import Future
 import Event
 
+import protocol RDBC.ResultSet
+
 public protocol SwirlOperationProtocol {
     associatedtype Ret
     
@@ -101,25 +103,29 @@ public extension QueryLike where Ret.Value : EntityLike {
     }
 }
 
-public extension QueryLike where Ret.Value : EntityLike, DS : TableProtocol {
-    private func insert(renderlet: @escaping Renderlet) -> SwirlOperation<Int> {
-        return SwirlOperation { swirl in
-            swirl.execute(renderlet: renderlet).flatMap {$0}.flatMap { rs in
-                rs.dictionaries()
-            }.flatMap { dictionaries in
-                dictionaries.first.flatMap { row in
-                    swirl.execute { dialect in
-                        row[dialect.affected].flatMap {$0 as? Int}
-                    }
-                }
-            }.recover { (e:FutureError) in
-                switch e {
-                    case .mappedNil:
-                        return 0
-                    default:
-                        throw e
+public extension QueryLike where Ret.Value : EntityLike, DS : Table {
+    private static func count<F: FutureProtocol>(from: F, swirl: Swirl) -> Future<Int> where F.Value == ResultSet? {
+        return from.flatMap {$0}.flatMap { rs in
+            rs.dictionaries()
+        }.flatMap { dictionaries in
+            dictionaries.first.flatMap { row in
+                swirl.execute { dialect in
+                    row[dialect.affected].flatMap {$0 as? Int}
                 }
             }
+        }.recover { (e:FutureError) in
+            switch e {
+                case .mappedNil:
+                    return 0
+                default:
+                    throw e
+            }
+        }
+    }
+    
+    private func insert(renderlet: @escaping Renderlet) -> SwirlOperation<Int> {
+        return SwirlOperation { swirl in
+            Self.count(from: swirl.execute(renderlet: renderlet), swirl: swirl)
         }
     }
     
@@ -129,6 +135,13 @@ public extension QueryLike where Ret.Value : EntityLike, DS : TableProtocol {
     
     public func insert(items: [Ret.Value.Bind]) -> SwirlOperation<Int> {
         return insert(renderlet: self.insert(items: items))
+    }
+    
+    public func update(with values: Ret.Value.Bind) -> SwirlOperation<Int> {
+        let renderlet: Renderlet = self.update(with: values)
+        return SwirlOperation { swirl in
+            Self.count(from: swirl.execute(renderlet: renderlet), swirl: swirl)
+        }
     }
     
     public static func +=(q:Self, item: Ret.Value.Bind) -> SwirlOperation<Int> {

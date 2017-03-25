@@ -70,14 +70,46 @@ extension SQLiteDialect : Dialect {
         return SQL(query: sql.query, parameters: paramsFixed)
     }
     
-    public func render<DS: TableProtocol, Ret: Rep>(insert row: [ErasedRep], into table:DS, ret: Ret) -> SQL {
+    public func render<DS: Table, Ret: Rep>(insert row: [ErasedRep], into table:DS, ret: Ret) -> SQL {
         let vsql = render(values: row, aliases: [:])
         return render(insert: vsql, to: table, ret: ret)
     }
     
-    public func render<DS: TableProtocol, Ret: Rep>(insert rows: [[ErasedRep]], into table:DS, ret: Ret) -> SQL {
+    public func render<DS: Table, Ret: Rep>(insert rows: [[ErasedRep]], into table:DS, ret: Ret) -> SQL {
         let vsql = render(values: rows, aliases: [:])
         return render(insert: vsql, to: table, ret: ret)
+    }
+    
+    public func render<DS: Table, Ret: Rep>(update values: [ErasedRep], into table:DS, ret: Ret, matching filter: Predicate) -> SQL {
+        //yes aliases must be empty
+        let phony = phonyAliases(dataset: table)
+        
+        let cols = ret.stripe.map {($0, phony)}.map(render)
+        let vals = values.map {($0, [:])}.map(render)
+        
+        let base = SQL(query: "UPDATE", parameters: [])
+        let tsql = table.render(renderer: self, aliases: [:])
+        let cvsql = "SET " + cols.zipWith(other: vals).map { $0.0 + " = " + $0.1 }.joined(separator: ", ")
+        let fsql = filter.render(renderer: self, aliases: phony).map {"WHERE " + $0}
+        
+        let sql = [tsql, cvsql, fsql].flatMap {$0}.reduce(base) { z, a in
+            z + " " + a
+        }
+        
+        //TODO: get the fuck this out of here and move mapping to somethere (RDBC?)
+        let paramsFixed = sql.parameters.map { param -> Any? in
+            param.map { value in
+                switch value {
+                //SQLITE doesn't support boolean
+                case let b as Bool:
+                    return b ? 1 : 0
+                default:
+                    return value
+                }
+            }
+        }
+        
+        return SQL(query: sql.query, parameters: paramsFixed)
     }
 }
 
@@ -225,7 +257,7 @@ private extension SQLiteDialect {
         return rows.map {($0, aliases)}.map(render).joined(separator: ", \n\t")
     }
     
-    func render<DS: TableProtocol, Ret: Rep>(insert vsql: SQL, to table:DS, ret: Ret) -> SQL {
+    func render<DS: Table, Ret: Rep>(insert vsql: SQL, to table:DS, ret: Ret) -> SQL {
         //yes aliases must be empty
         let tsql = table.render(renderer: self, aliases: [:])
         

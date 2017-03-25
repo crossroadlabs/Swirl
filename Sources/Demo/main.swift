@@ -167,11 +167,34 @@ let comments = Comments()
     }
 }*/
 
-[comments.map {($0.personId, $0.comment)} += (5, "WTF1"),
+/*[comments.map {($0.personId, $0.comment)} += (5, "WTF1"),
  comments.map {($0.personId, $0.comment)} += (5, "WTF"),
  comments.map {($0.personId, $0.comment)} += (5, "WTF3")].execute(in: swirl).onSuccess { ressult in
     print("Inserted shit:", ressult)
+}*/
+
+person.filter { p in
+    p["id"] == 2
+}.map { p in
+    (p["firstname"].bind(String.self), p["lastname"].bind(String.self))
+}.result.execute(in: swirl).onSuccess { rows in
+    //every row is a tuple, types are preserved
+    for (first, last) in rows {
+        print("got \(first) \(last) here")
+    }
+}.onFailure { e in
+    print("EE", e)
 }
+
+/*person.map { p in
+    (p["id"].bind(Int.self), p["firstname"].bind(String.self), p["lastname"].bind(String.self))
+}.filter { (id, _, _) in
+    id == 2
+}.map { (id, first, last) in
+    (first, last)
+}.update(with: ("John1", "Lennon1")).execute(in: swirl).onComplete { res in
+    print("Done:", res)
+}*/
 
 /*swirl.execute(comments.map {($0.personId, $0.comment)} += [(5, "WTF1"),
                                                            (5, "WTF"),
