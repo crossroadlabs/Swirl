@@ -14,13 +14,15 @@
 //limitations under the License.
 //===----------------------------------------------------------------------===//
 
+import protocol Boilerplate.TupleProtocol
+
 public protocol ArrayParser {
     associatedtype ArrayParseResult
     
     static func parse(array:[Any?]) -> ArrayParseResult
 }
 
-public protocol RepRichTuple : Tuple {
+public protocol RepRichTuple : TupleProtocol {
     associatedtype ColumnsRep : TupleRepProtocol
     
     static func columns(_ columns:ColumnsRep.Tuple.Wrapped) -> ColumnsRep

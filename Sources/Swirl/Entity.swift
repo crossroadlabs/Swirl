@@ -14,6 +14,9 @@
 //limitations under the License.
 //===----------------------------------------------------------------------===//
 
+import protocol Boilerplate.Tuple
+import protocol Boilerplate.CaseProtocol
+
 public protocol EntityLike {
     associatedtype Tuple : RepRichTuple
     associatedtype Bind
