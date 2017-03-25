@@ -84,6 +84,11 @@ extension SQLiteDialect : Renderer {
         return SQL(query: param, parameters: [value])
     }
     
+    public func render(function: ForeignFunctionName, args: [ErasedRep], aliases: [String: String]) -> SQL {
+        let args = args.map {($0, aliases)}.map(render(rep:aliases:)).joined(separator: ", ")
+        return render(ff: function) + "(" + args + ")"
+    }
+    
     public func render(column: String, table: String, escape:Bool) -> SQL {
         let col = escape ? "`\(column)`" : column
         let sql = table == phony ? col : "\(table).\(col)"
@@ -225,6 +230,17 @@ private extension SQLiteDialect {
         let csql = render(columns: ret, aliases: phony)
         
         return "INSERT INTO " + tsql + " (" + csql + ") VALUES \n\t" + vsql
+    }
+    
+    func render(ff: ForeignFunctionName) -> SQL {
+        switch ff {
+        case .lowercase:
+            return "LOWER"
+        case .uppercase:
+            return "UPPER"
+        case .custom(name: let name):
+            return SQL(query: name, parameters: [])
+        }
     }
     
     func render(op:BinaryOp, _ a:SQL, _ b:SQL) -> SQL {

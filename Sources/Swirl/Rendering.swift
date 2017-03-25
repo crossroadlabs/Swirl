@@ -17,6 +17,7 @@
 public protocol Renderer {
     //back hooks for renderables
     func render<T>(value: T?) -> SQL
+    func render(function: ForeignFunctionName, args: [ErasedRep], aliases: [String: String]) -> SQL
     func render(column: String, table: String, escape:Bool) -> SQL
     func render(table:Table, aliases: [String: String]) -> SQL
     func render<J: JoinProtocol>(join:J, aliases: [String: String]) -> SQL
@@ -33,6 +34,12 @@ public protocol Renderable {
 public extension ValueRep {
     public func render(renderer: Renderer, aliases: [String : String]) -> SQL {
         return renderer.render(value: value)
+    }
+}
+
+public extension ForeignFunctionProtocol {
+    public func render(renderer: Renderer, aliases: [String : String]) -> SQL {
+        return renderer.render(function: name, args: args, aliases: aliases)
     }
 }
 
