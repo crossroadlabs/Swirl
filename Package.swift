@@ -1,22 +1,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "RDBC",
+    name: "Swirl",
     targets: [
         Target(
-            name: "RDBC"
-        ),
-        Target(
-            name: "RDBCSQLite",
-            dependencies: [.Target(name: "RDBC")]
-        ),
-        Target(
-            name: "Swirl",
-            dependencies: [.Target(name: "RDBC")]
+            name: "Swirl"
         ),
         Target(
             name: "SwirlSQLite",
-            dependencies: [.Target(name: "Swirl"), .Target(name: "RDBCSQLite")]
+            dependencies: [.Target(name: "Swirl")]
         ),
         Target(
             name: "Demo",
@@ -24,8 +16,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .Package(url: "https://github.com/reactive-swift/Future.git", "0.2.0-alpha"),
-        //.Package(url: "https://github.com/IBM-Swift/CLibpq.git", majorVersion: 0, minor: 1),
-        .Package(url: "https://github.com/carlbrown/CSQLite.git", majorVersion: 0, minor: 0),
+        .Package(url: "https://github.com/reactive-swift/RDBC.git", majorVersion: 0, minor: 1),
+        .Package(url: "https://github.com/crossroadlabs/RDBCSQLite.git", majorVersion: 0, minor: 1),
     ]
 )
