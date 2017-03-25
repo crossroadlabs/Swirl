@@ -91,3 +91,37 @@ public indirect enum Join<A : Dataset, B : Table> : JoinProtocol {
         return self
     }
 }
+
+public extension Table where Self : Rep {
+    //cross join
+    public func zip<B : Table>(with table: B) -> QueryImpl<Join<Self, B>, Tuple2Rep<Self, B>> where B : Rep {
+        let join:Join<Self, B> = .cross(left: self, right: table)
+        //TODO: glue predicated with AND
+        return QueryImpl(dataset: join, ret: Tuple2Rep(self, table))
+    }
+    
+    //inner join
+    public func zip<B : Table>(with table: B, _ condition: JoinCondition) -> QueryImpl<Join<Self, B>, Tuple2Rep<Self, B>> where B : Rep {
+        let join:Join<Self, B> = .inner(left: self, right: table, condition: condition)
+        //TODO: glue predicated with AND
+        return QueryImpl(dataset: join, ret: Tuple2Rep(self, table))
+    }
+    
+    //outer join
+    public func zip<B : Table>(with table: B, outer direction: JoinDirection, _ condition: JoinCondition) -> QueryImpl<Join<Self, B>, Tuple2Rep<Self, B>> where B : Rep {
+        let join:Join<Self, B> = .outer(left: self, right: table, condition: condition, direction: direction)
+        //TODO: glue predicated with AND
+        return QueryImpl(dataset: join, ret: Tuple2Rep(self, table))
+    }
+}
+
+//TODO: implement for Joins
+public extension Table where Self : Rep {
+    public func zip<B : Table>(with table:B, _ f: (Self, B) -> Predicate) -> QueryImpl<Join<Self, B>, Tuple2Rep<Self, B>> where B : Rep {
+        return zip(with: table, .on(f(self, table)))
+    }
+    
+    public func zip<B : Table>(with table:B, outer direction: JoinDirection, _ f: (Self, B) -> Predicate) -> QueryImpl<Join<Self, B>, Tuple2Rep<Self, B>> where B : Rep {
+        return zip(with: table, outer: direction, .on(f(self, table)))
+    }
+}
