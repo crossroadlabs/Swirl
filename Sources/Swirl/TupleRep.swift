@@ -52,6 +52,26 @@ extension Tuple3 : RepRichTuple {
     }
 }
 
+extension Tuple4 : RepRichTuple {
+    public typealias ColumnsRep = Tuple4Rep<
+        TypedColumn<A>,
+        TypedColumn<B>,
+        TypedColumn<C>,
+        TypedColumn<D>>
+    
+    public static func columns(_ columns:ColumnsRep.Tuple.Wrapped) -> ColumnsRep {
+        return ColumnsRep(tuple: columns)
+    }
+}
+
+extension Tuple5 : RepRichTuple {
+    public typealias ColumnsRep = Tuple3Rep<TypedColumn<A>, TypedColumn<B>, TypedColumn<C>>
+    
+    public static func columns(_ columns:ColumnsRep.Tuple.Wrapped) -> ColumnsRep {
+        return ColumnsRep(tuple: columns)
+    }
+}
+
 public protocol TupleRepProtocol : Rep {
     associatedtype Tuple : TupleProtocol
     associatedtype Naked
@@ -164,6 +184,74 @@ public struct Tuple3Rep<AI : Rep, BI : Rep, CI : Rep> : Tuple3RepProtocol {
     
     public init(_ a:A, _ b:B, _ c:C) {
         self.init(tuple: (a, b, c))
+    }
+}
+
+////////////////////////////////////////////////// FOUR //////////////////////////////////////////////////
+
+public protocol Tuple4RepProtocol : TupleRepProtocol {
+    associatedtype A : Rep
+    associatedtype B : Rep
+    associatedtype C : Rep
+    associatedtype D : Rep
+}
+
+public extension Tuple4RepProtocol {
+    public typealias Tuple = Tuple4<A, B, C, D>
+}
+
+public struct Tuple4Rep<AI : Rep, BI : Rep, CI : Rep, DI : Rep> : Tuple4RepProtocol {
+    public typealias A = AI
+    public typealias B = BI
+    public typealias C = CI
+    public typealias D = DI
+    public typealias Tuple = Tuple4<A, B, C, D>
+    public typealias Value = Tuple4<A.Value, B.Value, C.Value, D.Value>
+    public typealias Naked = Value.Wrapped
+    
+    public let tuple: Tuple4<A, B, C, D>
+    
+    public init(tuple: (A, B, C, D)) {
+        self.tuple = Tuple4<A, B, C, D>(tuple: tuple)
+    }
+    
+    public init(_ a:A, _ b:B, _ c:C, _ d:D) {
+        self.init(tuple: (a, b, c, d))
+    }
+}
+
+////////////////////////////////////////////////// FIVE //////////////////////////////////////////////////
+
+public protocol Tuple5RepProtocol : TupleRepProtocol {
+    associatedtype A : Rep
+    associatedtype B : Rep
+    associatedtype C : Rep
+    associatedtype D : Rep
+    associatedtype E : Rep
+}
+
+public extension Tuple5RepProtocol {
+    public typealias Tuple = Tuple5<A, B, C, D, E>
+}
+
+public struct Tuple5Rep<AI : Rep, BI : Rep, CI : Rep, DI : Rep, EI : Rep> : Tuple5RepProtocol {
+    public typealias A = AI
+    public typealias B = BI
+    public typealias C = CI
+    public typealias D = DI
+    public typealias E = EI
+    public typealias Tuple = Tuple5<A, B, C, D, E>
+    public typealias Value = Tuple5<A.Value, B.Value, C.Value, D.Value, E.Value>
+    public typealias Naked = Value.Wrapped
+    
+    public let tuple: Tuple5<A, B, C, D, E>
+    
+    public init(tuple: (A, B, C, D, E)) {
+        self.tuple = Tuple5<A, B, C, D, E>(tuple: tuple)
+    }
+    
+    public init(_ a:A, _ b:B, _ c:C, _ d:D, _ e:E) {
+        self.init(tuple: (a, b, c, d, e))
     }
 }
 

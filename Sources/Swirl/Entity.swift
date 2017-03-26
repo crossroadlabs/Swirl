@@ -88,3 +88,13 @@ extension Tuple3 : TupleEntity {
     public typealias Tuple = Tuple3
     public typealias Bind = Tuple.Wrapped
 }
+
+extension Tuple4 : TupleEntity {
+    public typealias Tuple = Tuple4
+    public typealias Bind = Tuple.Wrapped
+}
+
+extension Tuple5 : TupleEntity {
+    public typealias Tuple = Tuple5
+    public typealias Bind = Tuple.Wrapped
+}
