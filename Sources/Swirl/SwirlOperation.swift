@@ -103,6 +103,9 @@ public extension QueryLike where Ret.Value : EntityLike {
     }
 }
 
+infix operator ++= : AssignmentPrecedence
+infix operator ?= : AssignmentPrecedence
+
 public extension QueryLike where Ret.Value : EntityLike, DS : Table {
     private static func count<F: FutureProtocol>(from: F, swirl: Swirl) -> Future<Int> where F.Value == ResultSet? {
         return from.flatMap {$0}.flatMap { rs in
@@ -155,9 +158,12 @@ public extension QueryLike where Ret.Value : EntityLike, DS : Table {
         return q.insert(item: item)
     }
     
-    //TODO: implement ++= operator
     //TODO: move all operators to Boilerplate
-    public static func +=(q:Self, items: [Ret.Value.Bind]) -> SwirlOperation<Int> {
+    public static func ++=(q:Self, items: [Ret.Value.Bind]) -> SwirlOperation<Int> {
         return q.insert(items: items)
+    }
+    
+    public static func ?=(q:Self, item: Ret.Value.Bind) -> SwirlOperation<Int> {
+        return q.update(with: item)
     }
 }
