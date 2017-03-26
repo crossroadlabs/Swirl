@@ -173,25 +173,15 @@ let comments = Comments()
     print("Inserted shit:", ressult)
 }*/
 
-let q = comments.map { c in
-    (c.personId, c.comment)
-}
-
-let q123 = comments.filter { comment in
-    comment.comment ~= "%WTF%"
-}.map { comment in
-    (comment.comment)
-}.filter { c in
-    c ~= "%2%"
-}
-
-/*swirl.execute(q123 ?= "WTF2").onSuccess { r in
-    print("!!!!!!!!!!!!!!!!: \(r)")
-}*/
-
-q123.result.execute(in: swirl).onSuccess { comments in
-    for comment in comments {
-        print("!!!!!!!!!!!!!!!!: \(comment)")
+comments.map { comment in
+    (comment.id, comment.personId, comment.comment)
+}.filter { (_, _, comment) in
+    comment ~= "%WTF%"
+}.map { (id, pid, _) in
+    (id, pid)
+}.result.execute(in: swirl).onSuccess { items in
+    for (id, pid) in items {
+        print("id: \(id) is for \(pid)")
     }
 }
 

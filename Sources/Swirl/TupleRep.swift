@@ -65,7 +65,12 @@ extension Tuple4 : RepRichTuple {
 }
 
 extension Tuple5 : RepRichTuple {
-    public typealias ColumnsRep = Tuple3Rep<TypedColumn<A>, TypedColumn<B>, TypedColumn<C>>
+    public typealias ColumnsRep = Tuple5Rep<
+        TypedColumn<A>,
+        TypedColumn<B>,
+        TypedColumn<C>,
+        TypedColumn<D>,
+        TypedColumn<E>>
     
     public static func columns(_ columns:ColumnsRep.Tuple.Wrapped) -> ColumnsRep {
         return ColumnsRep(tuple: columns)
