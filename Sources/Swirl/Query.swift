@@ -38,7 +38,7 @@ extension QueryLike {
 }
 
 extension QueryLike where Ret.Value : EntityLike, DS : Table {
-    func insert(item: Ret.Value.Bind) -> Renderlet {
+    func insertlet(item: Ret.Value.Bind) -> Renderlet {
         let q = self.query
         let rep = Ret.Value.unbind(bound: item).rep()
         return { dialect in
@@ -46,7 +46,7 @@ extension QueryLike where Ret.Value : EntityLike, DS : Table {
         }
     }
     
-    func insert(items: [Ret.Value.Bind]) -> Renderlet {
+    func insertlet(items: [Ret.Value.Bind]) -> Renderlet {
         let q = self.query
         let reps = items.map(Ret.Value.unbind).map{$0.rep()}
         return { dialect in
@@ -54,7 +54,7 @@ extension QueryLike where Ret.Value : EntityLike, DS : Table {
         }
     }
     
-    func update(with values: Ret.Value.Bind) -> Renderlet {
+    func updatelet(with values: Ret.Value.Bind) -> Renderlet {
         let q = self.query
         let rep = Ret.Value.unbind(bound: values).rep()
         return { dialect in

@@ -173,9 +173,19 @@ let comments = Comments()
     print("Inserted shit:", ressult)
 }*/
 
-comments.filter { c in
-    c.comment == "WTF"
-}.delete.execute(in: swirl).onComplete { res in
+let q = comments.map { c in
+    (c.personId, c.comment)
+}
+
+let ins = q.filter { pid, comment in
+    comment == "WTF"
+} ?+= (5, "OK")
+    
+let upd = q.filter { pid, comment in
+    comment == "WTF1"
+} ?+= (5, "WTF-MOD")
+
+swirl.execute([ins, upd]).onComplete { res in
     print(res)
 }
 

@@ -105,6 +105,11 @@ public extension QueryLike where Ret.Value : EntityLike {
 
 infix operator ++= : AssignmentPrecedence
 infix operator ?= : AssignmentPrecedence
+infix operator ?+= : AssignmentPrecedence
+
+private enum UpsertException : Error {
+    case notUpdated
+}
 
 public extension QueryLike where Ret.Value : EntityLike, DS : Table {
     private static func count<F: FutureProtocol>(from: F, swirl: Swirl) -> Future<Int> where F.Value == ResultSet? {
@@ -133,15 +138,15 @@ public extension QueryLike where Ret.Value : EntityLike, DS : Table {
     }
     
     public func insert(item: Ret.Value.Bind) -> SwirlOperation<Int> {
-        return insert(renderlet: self.insert(item: item))
+        return insert(renderlet: insertlet(item: item))
     }
     
     public func insert(items: [Ret.Value.Bind]) -> SwirlOperation<Int> {
-        return insert(renderlet: self.insert(items: items))
+        return insert(renderlet: insertlet(items: items))
     }
     
     public func update(with values: Ret.Value.Bind) -> SwirlOperation<Int> {
-        let renderlet: Renderlet = self.update(with: values)
+        let renderlet = updatelet(with: values)
         return SwirlOperation { swirl in
             Self.count(from: swirl.execute(renderlet: renderlet), swirl: swirl)
         }
@@ -151,6 +156,23 @@ public extension QueryLike where Ret.Value : EntityLike, DS : Table {
         let renderlet: Renderlet = self.deletelet
         return SwirlOperation { swirl in
             Self.count(from: swirl.execute(renderlet: renderlet), swirl: swirl)
+        }
+    }
+    
+    public func upsert(item: Ret.Value.Bind) -> SwirlOperation<Int> {
+        let updatelet = self.updatelet(with: item)
+        
+        return SwirlOperation { swirl in
+            swirl.sequencial.flatMap { swirl in
+                Self.count(from: swirl.execute(renderlet: updatelet), swirl: swirl).map { count in
+                    if count > 0 {
+                        return count
+                    }
+                    throw UpsertException.notUpdated
+                }.recoverWith { (e:UpsertException) in
+                    self.insert(item: item).execute(in: swirl)
+                }
+            }
         }
     }
     
@@ -165,5 +187,9 @@ public extension QueryLike where Ret.Value : EntityLike, DS : Table {
     
     public static func ?=(q:Self, item: Ret.Value.Bind) -> SwirlOperation<Int> {
         return q.update(with: item)
+    }
+    
+    public static func ?+=(q:Self, item: Ret.Value.Bind) -> SwirlOperation<Int> {
+        return q.upsert(item: item)
     }
 }
