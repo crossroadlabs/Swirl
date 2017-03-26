@@ -189,7 +189,7 @@ swirl.execute([ins, upd]).onComplete { res in
     print(res)
 }
 
-/*person.filter { p in
+person.filter { p in
     p["id"] == 2
 }.map { p in
     (p["firstname"].bind(String.self), p["lastname"].bind(String.self))
@@ -200,9 +200,9 @@ swirl.execute([ins, upd]).onComplete { res in
     }
 }.onFailure { e in
     print("EE", e)
-}*/
+}
 
-/*person.map { p in
+person.map { p in
     (p["id"].bind(Int.self), p["firstname"].bind(String.self), p["lastname"].bind(String.self))
 }.filter { (id, _, _) in
     id == 2
@@ -210,29 +210,29 @@ swirl.execute([ins, upd]).onComplete { res in
     (first, last)
 }.update(with: ("John1", "Lennon1")).execute(in: swirl).onComplete { res in
     print("Done:", res)
-}*/
+}
 
-/*swirl.execute(comments.map {($0.personId, $0.comment)} += [(5, "WTF1"),
+swirl.execute(comments.map {($0.personId, $0.comment)} ++= [(5, "WTF1"),
                                                            (5, "WTF"),
                                                            (5, "WTF3")]).onSuccess { ressult in
                 print("Inserted shit:", ressult)
 }.onFailure { e in
     print(e)
-}*/
+}
 
-/*swirl.execute(operation: comments += Comment(id: 1257, comment: "Test222")).onSuccess { res in
-    print("Inserted shit:", res)
-}.onFailure { e in
-    print("E!!:", e)
-}*/
+//swirl.execute(comments += Comment(id: 1258, comment: "Test222")).onSuccess { res in
+//    print("Inserted shit:", res)
+//}.onFailure { e in
+//    print("E!!:", e)
+//}
 
-/*swirl.execute(operation: comments.map {($0.personId, $0.comment)} += (5, "Test222")).onSuccess { res in
+swirl.execute(comments.map {($0.personId, $0.comment)} += (5, "Test222")).onSuccess { res in
     print("Inserted shit:", res)
     }.onFailure { e in
         print("E!!:", e)
-}*/
+}
 
-/*comments.filter { comment in
+comments.filter { comment in
     comment.id < 3 || comment.id > 5
 }.result.execute(in: swirl).onSuccess { comments in
     //every row is a tuple, types are preserved
@@ -242,9 +242,9 @@ swirl.execute([ins, upd]).onComplete { res in
 //    for (id, comment) in comments {
 //        print("'\(comment)' identified with ID: \(id)")
 //    }
-}*/
+}
 
-/*person.map { p in
+person.map { p in
     //
     (p.c("id", type: Int.self), p["firstname"].bind(String.self))
 }.filter { id, name in
@@ -258,9 +258,9 @@ swirl.execute([ins, upd]).onComplete { res in
     }
 }.onFailure { e in
     print("EE", e)
-}*/
+}
 
-/*person.map { p in
+person.map { p in
     (p.c("id", type: Int.self), p["firstname"].bind(String.self))
 }.filter { id, name in
     id > 1 && name ~= "%oh%"
@@ -270,7 +270,7 @@ swirl.execute([ins, upd]).onComplete { res in
     }
 }.onFailure { e in
     print("!!!Error:", e)
-}*/
+}
 
 /*person.zip(with: comment) { p, c in
     p["id"] == c["person_id"]
