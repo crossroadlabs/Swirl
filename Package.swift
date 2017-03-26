@@ -16,7 +16,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .Package(url: "https://github.com/reactive-swift/RDBC.git", majorVersion: 0, minor: 1),
-        .Package(url: "https://github.com/crossroadlabs/RDBCSQLite.git", majorVersion: 0, minor: 1),
+        .Package(url: "https://github.com/reactive-swift/RDBC.git", majorVersion: 0, minor: 2),
+        .Package(url: "https://github.com/crossroadlabs/RDBCSQLite.git", majorVersion: 0, minor: 2),
     ]
 )
