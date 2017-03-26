@@ -177,7 +177,17 @@ let q = comments.map { c in
     (c.personId, c.comment)
 }
 
-let q123 = comments.map {($0.comment)}
+let q123 = comments.filter { comment in
+    comment.comment ~= "%WTF%"
+}.map { comment in
+    (comment.comment)
+}.filter { c in
+    c ~= "%2%"
+}
+
+/*swirl.execute(q123 ?= "WTF2").onSuccess { r in
+    print("!!!!!!!!!!!!!!!!: \(r)")
+}*/
 
 q123.result.execute(in: swirl).onSuccess { comments in
     for comment in comments {
@@ -185,7 +195,7 @@ q123.result.execute(in: swirl).onSuccess { comments in
     }
 }
 
-let ins = q.filter { pid, comment in
+/*let ins = q.filter { pid, comment in
     comment == "WTF"
 } ?+= (5, "OK")
     
@@ -278,7 +288,7 @@ person.map { p in
     }
 }.onFailure { e in
     print("!!!Error:", e)
-}
+}*/
 
 /*person.zip(with: comment) { p, c in
     p["id"] == c["person_id"]

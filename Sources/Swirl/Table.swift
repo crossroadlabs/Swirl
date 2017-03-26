@@ -46,10 +46,6 @@ public struct ErasedTable : Table, QueryLike, Rep {
     public func c<T>(_ column:String, type:T.Type = T.self) -> TypedColumn<T> {
         return self[column].bind(type)
     }
-    
-    public func filter(_ f: (Ret)->Predicate) -> QueryImpl<DS, Ret> {
-        return QueryImpl(dataset: self, ret: self, predicate: f(self))
-    }
 }
 
 public protocol TableProtocol : Table {
@@ -88,12 +84,6 @@ open class TypedTable<E : EntityLike> : TableProtocol, Rep {
     
     open class var table: String {
         fatalError()
-    }
-}
-
-public extension TableProtocol where Self : QueryLike, Self.DS == Self, Self.Ret == Self {
-    public func filter(_ f: (Ret)->Predicate) -> QueryImpl<Self, Ret> {
-        return QueryImpl(dataset: self, ret: self, predicate: f(self))
     }
 }
 

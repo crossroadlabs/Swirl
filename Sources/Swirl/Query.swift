@@ -21,9 +21,6 @@ public protocol QueryLike {
     associatedtype Ret : Rep
     
     var query: QueryImpl<DS, Ret> {get}
-    
-    //func _map<BRet : Rep>(_ f:(Ret)->BRet) -> QueryImpl<DS, BRet>
-    func filter(_ f:(Ret)->Predicate) -> QueryImpl<DS, Ret>
 }
 
 public extension QueryLike where DS == Self, Ret == Self {
@@ -175,6 +172,32 @@ public extension QueryLike {
     }
 }
 
+public extension QueryLike where Ret : Tuple1RepProtocol {
+    public func map<BRet : Rep>(_ f:(Ret.A)->BRet) -> QueryImpl<DS, BRet> {
+        return _map { ret in
+            ret.wrapped |> f
+        }
+    }
+    
+    public func filter(_ f:(Ret.A)->Predicate) -> QueryImpl<DS, Ret> {
+        return filter { ret in
+            ret.wrapped |> f
+        }
+    }
+    
+    public func map<A: Rep, B : Rep>(_ f:(Ret.A)->(A, B)) -> QueryImpl<DS, Tuple2Rep<A, B>> {
+        return _map { ret in
+            Tuple2Rep(tuple: ret.wrapped |> f)
+        }
+    }
+    
+    public func map<A: Rep, B : Rep, C : Rep>(_ f:(Ret.A)->(A, B, C)) -> QueryImpl<DS, Tuple3Rep<A, B, C>> {
+        return _map { ret in
+            Tuple3Rep(tuple: ret.wrapped |> f)
+        }
+    }
+}
+
 public extension QueryLike where Ret : Tuple2RepProtocol {
     public func map<BRet : Rep>(_ f:(Ret.A, Ret.B)->BRet) -> QueryImpl<DS, BRet> {
         return _map { ret in
@@ -224,6 +247,14 @@ public extension QueryLike where Ret : Tuple3RepProtocol {
         return _map { ret in
             Tuple3Rep(tuple: ret.wrapped |> f)
         }
+    }
+}
+
+////////////////////////////////////////////////////// TAKE/DROP //////////////////////////////////////////////////////
+
+public extension QueryLike {
+    public func filter(_ f: (Ret)->Predicate) -> QueryImpl<DS, Ret> {
+        return query.filter(f)
     }
 }
 
