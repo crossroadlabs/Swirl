@@ -20,13 +20,15 @@ public protocol QueryLike {
     associatedtype DS : Dataset
     associatedtype Ret : Rep
     
-    func map<BRet : Rep>(_ f:(Ret)->BRet) -> QueryImpl<DS, BRet>
+    var query: QueryImpl<DS, Ret> {get}
+    
+    //func _map<BRet : Rep>(_ f:(Ret)->BRet) -> QueryImpl<DS, BRet>
     func filter(_ f:(Ret)->Predicate) -> QueryImpl<DS, Ret>
 }
 
-private extension QueryLike {
-    var query:QueryImpl<DS, Ret> {
-        return self.map {$0}
+public extension QueryLike where DS == Self, Ret == Self {
+    var query: QueryImpl<DS, Ret> {
+        return QueryImpl(dataset: self, ret: self)
     }
 }
 
@@ -79,12 +81,6 @@ public protocol Query : QueryLike {
     var limit:Limit? {get}
 }
 
-public extension Query {
-    public func map<BRet : Rep>(_ f:(Ret)->BRet) -> QueryImpl<DS, BRet> {
-        return QueryImpl(dataset: dataset, ret: f(ret), predicate: predicate, order: order, limit: limit)
-    }
-}
-
 private extension Query {
     func render(dialect:Dialect) -> SQL {
         return dialect.render(select: ret, from: dataset, filter: self.predicate, limit: limit)
@@ -107,6 +103,12 @@ public struct QueryImpl<DSI : Dataset, RetI : Rep> : Query {
         self.predicate = predicate
         self.order = order
         self.limit = limit
+    }
+}
+
+public extension QueryImpl {
+    public var query: QueryImpl<DS, Ret> {
+        return self
     }
 }
 
@@ -146,17 +148,28 @@ public extension Query where DS : Table {
     }
 }
 
-public extension QueryLike {
-    public func map<A: Rep, B : Rep>(_ f:(Ret)->(A, B)) -> QueryImpl<DS, Tuple2Rep<A, B>> {
-        return map { ret in
-            Tuple2Rep(tuple: f(ret))
-        }
+private extension QueryLike {
+    func _map<BRet : Rep>(_ f:(Ret)->BRet) -> QueryImpl<DS, BRet> {
+        let q = self.query
+        return QueryImpl(dataset: q.dataset, ret: f(q.ret), predicate: q.predicate, order: q.order, limit: q.limit)
     }
 }
 
 public extension QueryLike {
+    public func map<A: Rep>(_ f:(Ret)->A) -> QueryImpl<DS, Tuple1Rep<A>> {
+        return _map { ret in
+            Tuple1Rep(tuple: f(ret))
+        }
+    }
+    
+    public func map<A: Rep, B : Rep>(_ f:(Ret)->(A, B)) -> QueryImpl<DS, Tuple2Rep<A, B>> {
+        return _map { ret in
+            Tuple2Rep(tuple: f(ret))
+        }
+    }
+    
     public func map<A: Rep, B : Rep, C : Rep>(_ f:(Ret)->(A, B, C)) -> QueryImpl<DS, Tuple3Rep<A, B, C>> {
-        return map { ret in
+        return _map { ret in
             Tuple3Rep(tuple: f(ret))
         }
     }
@@ -164,7 +177,7 @@ public extension QueryLike {
 
 public extension QueryLike where Ret : Tuple2RepProtocol {
     public func map<BRet : Rep>(_ f:(Ret.A, Ret.B)->BRet) -> QueryImpl<DS, BRet> {
-        return map { ret in
+        return _map { ret in
             ret.wrapped |> f
         }
     }
@@ -176,13 +189,13 @@ public extension QueryLike where Ret : Tuple2RepProtocol {
     }
     
     public func map<A: Rep, B : Rep>(_ f:(Ret.A, Ret.B)->(A, B)) -> QueryImpl<DS, Tuple2Rep<A, B>> {
-        return map { ret in
+        return _map { ret in
             Tuple2Rep(tuple: ret.wrapped |> f)
         }
     }
     
     public func map<A: Rep, B : Rep, C : Rep>(_ f:(Ret.A, Ret.B)->(A, B, C)) -> QueryImpl<DS, Tuple3Rep<A, B, C>> {
-        return map { ret in
+        return _map { ret in
             Tuple3Rep(tuple: ret.wrapped |> f)
         }
     }
@@ -190,7 +203,7 @@ public extension QueryLike where Ret : Tuple2RepProtocol {
 
 public extension QueryLike where Ret : Tuple3RepProtocol {
     public func map<BRet : Rep>(_ f:(Ret.A, Ret.B, Ret.C)->BRet) -> QueryImpl<DS, BRet> {
-        return map { ret in
+        return _map { ret in
             ret.wrapped |> f
         }
     }
@@ -202,13 +215,13 @@ public extension QueryLike where Ret : Tuple3RepProtocol {
     }
     
     public func map<A: Rep, B : Rep>(_ f:(Ret.A, Ret.B, Ret.C)->(A, B)) -> QueryImpl<DS, Tuple2Rep<A, B>> {
-        return map { ret in
+        return _map { ret in
             Tuple2Rep(tuple: ret.wrapped |> f)
         }
     }
     
     public func map<A: Rep, B : Rep, C : Rep>(_ f:(Ret.A, Ret.B, Ret.C)->(A, B, C)) -> QueryImpl<DS, Tuple3Rep<A, B, C>> {
-        return map { ret in
+        return _map { ret in
             Tuple3Rep(tuple: ret.wrapped |> f)
         }
     }

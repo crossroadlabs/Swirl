@@ -28,6 +28,14 @@ public protocol RepRichTuple : TupleProtocol {
     static func columns(_ columns:ColumnsRep.Tuple.Wrapped) -> ColumnsRep
 }
 
+extension Tuple1 : RepRichTuple {
+    public typealias ColumnsRep = Tuple1Rep<TypedColumn<A>>
+    
+    public static func columns(_ columns:ColumnsRep.Tuple.Wrapped) -> ColumnsRep {
+        return ColumnsRep(tuple: columns)
+    }
+}
+
 extension Tuple2 : RepRichTuple {
     public typealias ColumnsRep = Tuple2Rep<TypedColumn<A>, TypedColumn<B>>
     
@@ -71,6 +79,33 @@ public extension TupleRepProtocol {
         return self.stripe
     }
 }*/
+
+////////////////////////////////////////////////// ONE //////////////////////////////////////////////////
+
+public protocol Tuple1RepProtocol : TupleRepProtocol {
+    associatedtype A : Rep
+}
+
+public extension Tuple1RepProtocol {
+    public typealias Tuple = Tuple1<A>
+}
+
+public struct Tuple1Rep<AI : Rep> : Tuple1RepProtocol {
+    public typealias A = AI
+    public typealias Tuple = Tuple1<A>
+    public typealias Value = Tuple1<A.Value>
+    public typealias Naked = Value.Wrapped
+    
+    public let tuple: Tuple1<A>
+    
+    public init(tuple: (A)) {
+        self.tuple = Tuple1<A>(tuple: tuple)
+    }
+    
+    public init(_ a:A) {
+        self.init(tuple: (a))
+    }
+}
 
 ////////////////////////////////////////////////// TWO //////////////////////////////////////////////////
 

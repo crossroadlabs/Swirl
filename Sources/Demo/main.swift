@@ -177,6 +177,14 @@ let q = comments.map { c in
     (c.personId, c.comment)
 }
 
+let q123 = comments.map {($0.comment)}
+
+q123.result.execute(in: swirl).onSuccess { comments in
+    for comment in comments {
+        print("!!!!!!!!!!!!!!!!: \(comment)")
+    }
+}
+
 let ins = q.filter { pid, comment in
     comment == "WTF"
 } ?+= (5, "OK")

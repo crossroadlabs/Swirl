@@ -74,6 +74,11 @@ public extension TupleEntity where Self : RepRichTuple, Bind == Wrapped {
     }
 }
 
+extension Tuple1 : TupleEntity {
+    public typealias Tuple = Tuple1
+    public typealias Bind = Tuple.Wrapped
+}
+
 extension Tuple2 : TupleEntity {
     public typealias Tuple = Tuple2
     public typealias Bind = Tuple.Wrapped
