@@ -184,7 +184,7 @@ public extension QueryLike {
     }
 }
 
-public extension QueryLike where Ret : Tuple1RepProtocol {
+public extension QueryLike where Ret : Tuple1RepProtocol, Ret.Tuple == Tuple1<Ret.A> {
     public func map<BRet : Rep>(_ f:(Ret.A)->BRet) -> QueryImpl<DS, BRet> {
         return _map { ret in
             ret.wrapped |> f
@@ -222,7 +222,7 @@ public extension QueryLike where Ret : Tuple1RepProtocol {
     }
 }
 
-public extension QueryLike where Ret : Tuple2RepProtocol {
+public extension QueryLike where Ret : Tuple2RepProtocol, Ret.Tuple == Tuple2<Ret.A, Ret.B> {
     public func map<BRet : Rep>(_ f:(Ret.A, Ret.B)->BRet) -> QueryImpl<DS, BRet> {
         return _map { ret in
             ret.wrapped |> f
@@ -260,7 +260,7 @@ public extension QueryLike where Ret : Tuple2RepProtocol {
     }
 }
 
-public extension QueryLike where Ret : Tuple3RepProtocol {
+public extension QueryLike where Ret : Tuple3RepProtocol, Ret.Tuple == Tuple3<Ret.A, Ret.B, Ret.C> {
     public func map<BRet : Rep>(_ f:(Ret.A, Ret.B, Ret.C)->BRet) -> QueryImpl<DS, BRet> {
         return _map { ret in
             ret.wrapped |> f
@@ -298,7 +298,7 @@ public extension QueryLike where Ret : Tuple3RepProtocol {
     }
 }
 
-public extension QueryLike where Ret : Tuple4RepProtocol {
+public extension QueryLike where Ret : Tuple4RepProtocol, Ret.Tuple == Tuple4<Ret.A, Ret.B, Ret.C, Ret.D> {
     public func map<BRet : Rep>(_ f:(Ret.A, Ret.B, Ret.C, Ret.D)->BRet) -> QueryImpl<DS, BRet> {
         return _map { ret in
             ret.wrapped |> f
@@ -336,7 +336,7 @@ public extension QueryLike where Ret : Tuple4RepProtocol {
     }
 }
 
-public extension QueryLike where Ret : Tuple5RepProtocol {
+public extension QueryLike where Ret : Tuple5RepProtocol, Ret.Tuple == Tuple5<Ret.A, Ret.B, Ret.C, Ret.D, Ret.E> {
     public func map<BRet : Rep>(_ f:(Ret.A, Ret.B, Ret.C, Ret.D, Ret.E)->BRet) -> QueryImpl<DS, BRet> {
         return _map { ret in
             ret.wrapped |> f
