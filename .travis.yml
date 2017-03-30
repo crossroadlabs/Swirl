@@ -1,0 +1,13 @@
+env:
+  global:
+    - MODULE_NAME=Swirl
+matrix:
+  include:
+    - script:
+        - swift build
+        - swift build -c release
+      os: osx
+      osx_image: xcode8.3
+      language: objective-c
+notifications:
+  email: false
